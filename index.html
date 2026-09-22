@@ -1,0 +1,2568 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>병원방문 스스로 정리앱</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,wght@0,400;0,500;0,600;1,400&family=Work+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  /* ===== 디자인 토큰 : 개인 건강 기록 노트 느낌의 차분한 팔레트 ===== */
+  :root {
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+
+    --bg: #F1F4EF;
+    --surface: #FFFFFF;
+    --ink: #1E2A22;
+    --ink-soft: #5C6A60;
+    --ink-faint: #8B978D;
+    --pine: #2F6F5E;
+    --pine-dark: #234F42;
+    --pine-tint: #E4EEE9;
+    --amber: #B8792C;
+    --amber-tint: #F6E9D6;
+    --line: #DBE3D9;
+    --danger: #B5493A;
+    --danger-tint: #F5E3E0;
+    --radius: 14px;
+    --shadow-sheet: 0 -8px 30px rgba(30, 42, 34, 0.18);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #131a15;
+      --surface: #1b2420;
+      --ink: #EAF1EC;
+      --ink-soft: #A9B7AE;
+      --ink-faint: #74827a;
+      --pine: #6FBBA3;
+      --pine-dark: #8FD0BB;
+      --pine-tint: #1f3129;
+      --amber: #E0AA63;
+      --amber-tint: #2c2419;
+      --line: #2c3831;
+      --danger: #E0897B;
+      --danger-tint: #33211e;
+      --shadow-sheet: 0 -8px 30px rgba(0, 0, 0, 0.5);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #131a15;
+    --surface: #1b2420;
+    --ink: #EAF1EC;
+    --ink-soft: #A9B7AE;
+    --ink-faint: #74827a;
+    --pine: #6FBBA3;
+    --pine-dark: #8FD0BB;
+    --pine-tint: #1f3129;
+    --amber: #E0AA63;
+    --amber-tint: #2c2419;
+    --line: #2c3831;
+    --danger: #E0897B;
+    --danger-tint: #33211e;
+    --shadow-sheet: 0 -8px 30px rgba(0, 0, 0, 0.5);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Work Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    -webkit-tap-highlight-color: transparent;
+  }
+  h1, h2, h3, .serif { font-family: 'Newsreader', Georgia, serif; }
+
+  #app {
+    max-width: 480px;
+    margin: 0 auto;
+    min-height: 100%;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+
+  .page { display: none; flex: 1; flex-direction: column; padding: 24px 20px 40px; animation: fadein .25s ease; }
+  .page.active { display: flex; }
+  @keyframes fadein { from { opacity: 0; transform: translateY(6px);} to { opacity: 1; transform: translateY(0);} }
+  @media (prefers-reduced-motion: reduce) { .page { animation: none; } }
+
+  /* ---- 공통 헤더 ---- */
+  .topbar { display: flex; align-items: center; gap: 10px; margin-bottom: 22px; min-height: 32px; }
+  .back-btn {
+    background: none; border: none; color: var(--ink-soft); font-size: 15px; cursor: pointer;
+    padding: 6px 8px 6px 0; font-family: 'Work Sans', sans-serif; display: flex; align-items: center; gap: 4px;
+  }
+  .back-btn:active { color: var(--pine); }
+  .topbar .who { font-size: 13px; color: var(--ink-faint); margin-left: auto; }
+
+  /* ---- 첫 페이지 ---- */
+  #page-title { justify-content: center; align-items: center; text-align: center; gap: 14px; }
+  #page-title .mark {
+    width: 64px; height: 64px; border-radius: 20px; background: var(--pine-tint);
+    display: flex; align-items: center; justify-content: center; margin-bottom: 6px;
+  }
+  #page-title .mark svg { width: 30px; height: 30px; }
+  #page-title h1 { font-size: 30px; font-weight: 600; margin: 0; line-height: 1.35; color: var(--ink); }
+  #page-title p { color: var(--ink-soft); font-size: 15px; line-height: 1.6; margin: 0 0 18px; max-width: 300px; }
+
+  /* ---- 버튼 ---- */
+  .btn-primary {
+    background: var(--pine); color: #fff; border: none; border-radius: 999px;
+    padding: 15px 28px; font-size: 16px; font-weight: 600; cursor: pointer;
+    font-family: 'Work Sans', sans-serif; width: 100%; transition: background .15s ease;
+  }
+  .btn-primary:active { background: var(--pine-dark); }
+  .btn-ghost {
+    background: none; border: 1.5px solid var(--pine); color: var(--pine); border-radius: 999px;
+    padding: 13px 24px; font-size: 15px; font-weight: 600; cursor: pointer; width: 100%;
+    font-family: 'Work Sans', sans-serif;
+  }
+  .btn-ghost:active { background: var(--pine-tint); }
+  .btn-text { background: none; border: none; color: var(--pine); font-weight: 600; font-size: 14px; cursor: pointer; padding: 4px 0; }
+
+  /* ---- 리스트(플랫, 카드 없이 헤어라인 구분) ---- */
+  .section-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 4px; }
+  .section-head h2 { font-size: 22px; font-weight: 600; margin: 0; }
+  .list { border-top: 1px solid var(--line); margin-top: 14px; }
+  .row {
+    display: flex; align-items: center; gap: 12px; padding: 16px 2px;
+    border-bottom: 1px solid var(--line); cursor: pointer; text-align: left; background: none; border-left: none; border-right: none; border-top: none; width: 100%;
+    font-family: 'Work Sans', sans-serif; color: var(--ink);
+  }
+  .row:active { background: var(--pine-tint); }
+  .row .row-main { flex: 1; min-width: 0; }
+  .row .row-title { font-size: 16px; font-weight: 600; margin: 0 0 4px; }
+  .row .row-sub { font-size: 13px; color: var(--ink-soft); }
+  .row .chev { color: var(--ink-faint); font-size: 18px; flex-shrink: 0; }
+  /* ---- 질환 목록: 세부설명 아코디언 ---- */
+  .d-item { border-bottom: 1px solid var(--line); }
+  .d-head { display: flex; align-items: center; gap: 8px; padding: 16px 2px; }
+  .d-head .row-main { flex: 1; min-width: 0; }
+  .d-title-line { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin: 0 0 4px; }
+  .d-title-line .tag { margin-right: 0; }
+  .d-name { font-size: 16px; font-weight: 600; margin: 0; }
+  .d-more {
+    background: transparent; border: 1.5px solid var(--pine); color: var(--pine); border-radius: 999px;
+    padding: 2px 10px; font-size: 12px; font-weight: 600; font-family: inherit; cursor: pointer;
+  }
+  .d-more .arrow { display: inline-block; transition: transform .2s ease; margin-left: 2px; }
+  .d-item.open .d-more { background: var(--pine); color: #fff; }
+  .d-item.open .d-more .arrow { transform: rotate(180deg); }
+  .d-go { background: none; border: none; color: var(--pine); font-size: 13.5px; font-weight: 600; font-family: inherit; line-height: 1.2; white-space: nowrap; padding: 12px 2px 12px 10px; cursor: pointer; flex-shrink: 0; }
+  .d-go .go-arrow { font-size: 20px; line-height: 1; vertical-align: -2px; margin-left: 1px; }
+  .d-go:active { color: var(--pine); }
+  .d-body { max-height: 0; overflow: hidden; transition: max-height .3s ease; }
+  .d-item.open .d-body { max-height: 1000px; }
+  .d-inner { padding: 2px 2px 18px; display: flex; flex-direction: column; gap: 14px; }
+  .d-inner .field { margin-bottom: 0; }
+  .d-actions { display: flex; gap: 10px; }
+  .d-actions button { flex: 1; width: auto; padding: 11px 16px; font-size: 14.5px; }
+  /* ---- 별칭 수정 ---- */
+  .p-title-line { display: flex; align-items: center; gap: 10px; margin: 0 0 4px; }
+  .p-name { font-size: 16px; font-weight: 600; margin: 0; }
+  .p-edit-btn {
+    background: transparent; border: 1.5px solid var(--pine); color: var(--pine); border-radius: 999px;
+    padding: 2px 11px; font-size: 12px; font-weight: 600; font-family: inherit; cursor: pointer; flex-shrink: 0;
+  }
+  .p-edit-btn.done { background: var(--pine); color: #fff; }
+  .p-input {
+    font-size: 16px; font-weight: 600; font-family: inherit; color: var(--ink); background: transparent;
+    border: none; border-bottom: 2px solid var(--pine); border-radius: 0; padding: 2px 0; outline: none;
+    width: 9em; max-width: 55%; min-width: 0;
+  }
+  .p-input::placeholder { color: var(--ink-faint); font-weight: 500; }
+  .tag {
+    display: inline-block; font-size: 11.5px; font-weight: 600; color: var(--amber);
+    background: var(--amber-tint); padding: 2px 8px; border-radius: 999px; margin-right: 6px;
+  }
+  .empty-state { text-align: center; padding: 50px 10px; color: var(--ink-soft); }
+  .empty-state p { font-size: 14.5px; line-height: 1.6; margin: 0 0 20px; }
+
+  .footer-add { margin-top: 20px; }
+
+  /* ---- 방문기록 카드 + 아코디언 ---- */
+  .visit-item { border-bottom: 1px solid var(--line); }
+  .visit-summary {
+    display: flex; align-items: flex-start; gap: 12px; padding: 16px 2px; cursor: pointer;
+  }
+  .visit-summary .date-badge {
+    flex-shrink: 0; width: 66px; white-space: nowrap; text-align: center; color: var(--amber); font-weight: 600; font-size: 13px;
+    padding-top: 2px;
+  }
+  .visit-summary .date-badge .dow { font-size: 11px; font-weight: 600; margin-left: 1px; }
+  .visit-summary .date-badge .yy { display:block; font-size: 11px; color: var(--ink-faint); font-weight: 500; }
+  .visit-summary .vs-main { flex: 1; min-width: 0; }
+  .visit-summary .vs-hospital { font-size: 16px; font-weight: 600; margin: 0 0 3px; }
+  .visit-summary .vs-treat { font-size: 13.5px; color: var(--ink-soft); margin: 0 0 6px; }
+  .visit-summary .vs-treat-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; margin: 0 0 6px; }
+  .visit-summary .vs-treat-row .vs-treat { margin: 0; flex: 1 1 auto; min-width: 0; }
+  .visit-summary .vs-next { margin-left: auto; font-size: 12.5px; font-weight: 600; color: var(--pine); white-space: nowrap; }
+  .visit-summary .toggle-label { font-size: 13px; color: var(--pine); font-weight: 600; }
+  .visit-summary .toggle-label .arrow { display: inline-block; transition: transform .2s ease; margin-left: 3px; }
+  .visit-item.open .toggle-label .arrow { transform: rotate(180deg); }
+
+  .accordion-body {
+    max-height: 0; overflow: hidden; transition: max-height .3s ease;
+  }
+  .visit-item.open .accordion-body { max-height: 1400px; }
+  .accordion-inner { padding: 4px 2px 20px 66px; display: flex; flex-direction: column; gap: 14px; }
+  .detail-block .db-label { font-size: 12px; color: var(--ink-faint); font-weight: 600; margin: 0 0 3px; }
+  .detail-block .db-value { font-size: 14.5px; color: var(--ink); line-height: 1.55; white-space: pre-wrap; }
+  .detail-block .db-value.empty { color: var(--ink-faint); font-style: italic; }
+  .photo-preview {
+    width: 96px; height: 96px; border-radius: 10px; border: 1px solid var(--line);
+    background: var(--pine-tint); object-fit: cover; display: block;
+  }
+  .photo-preview-placeholder {
+    width: 96px; height: 96px; border-radius: 10px; border: 1px dashed var(--line);
+    display: flex; align-items: center; justify-content: center; color: var(--ink-faint); font-size: 12px; text-align: center;
+  }
+
+  /* ---- 모달 / 바텀시트 ---- */
+  .sheet-overlay {
+    position: fixed; inset: 0; background: rgba(20, 28, 22, 0.45); display: none;
+    align-items: flex-end; justify-content: center; z-index: 50;
+  }
+  .sheet-overlay.active { display: flex; }
+  .sheet {
+    background: var(--surface); width: 100%; max-width: 480px; border-radius: 22px 22px 0 0;
+    max-height: 88vh; display: flex; flex-direction: column; box-shadow: var(--shadow-sheet);
+    animation: sheetup .28s cubic-bezier(.22,.9,.32,1);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .btn-primary.is-off { opacity: .42; filter: grayscale(.35); }
+
+  /* 화면 가운데에 단독으로 뜨는 안내 창 */
+  .sheet-overlay.center-modal { align-items: center; padding: 0 24px; }
+  .center-modal .sheet { max-width: 340px; border-radius: 20px; padding-bottom: 0; animation: popin .22s ease; overflow: hidden; }
+  .center-modal .sheet-handle { display: none; }
+  .center-modal .sheet-head { padding-top: 20px; }
+  @keyframes popin { from { transform: scale(.94); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  @keyframes sheetup { from { transform: translateY(30px); opacity: .6; } to { transform: translateY(0); opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { .sheet { animation: none; } }
+  .sheet-handle { width: 40px; height: 4px; background: var(--line); border-radius: 4px; margin: 10px auto 4px; flex-shrink: 0; }
+  .sheet-head { display: flex; align-items: center; justify-content: space-between; padding: 10px 20px 6px; flex-shrink: 0; }
+  .sheet-head h3 { font-size: 19px; margin: 0; font-weight: 600; }
+  .sheet-close { background: none; border: none; font-size: 22px; color: var(--ink-faint); cursor: pointer; line-height: 1; padding: 4px; }
+  .sheet-body { padding: 6px 20px 20px; overflow-y: auto; }
+  .sheet-foot { padding: 14px 20px; border-top: 1px solid var(--line); flex-shrink: 0; }
+  /* 입력창(사람 추가 / 병명 추가 / 방문 기록): 저장 버튼을 스크롤 영역 안(입력 칸 바로 아래)에 두고,
+     글을 쓰는 동안(키보드가 올라온 동안)에는 버튼 아래에 큰 여백을 넣어
+     화면을 위로 밀어 올려 버튼이 키보드 위로 보이게 한다. */
+  .sheet-save-area { margin-top: 10px; padding-bottom: 8px; }
+  .sheet-body:focus-within .sheet-save-area { padding-bottom: max(440px, 60vh); }
+
+  .field { margin-bottom: 16px; }
+  .field label { display: block; font-size: 13px; font-weight: 600; color: var(--ink-soft); margin-bottom: 6px; }
+  .field input[type=text], .field input[type=date], .field textarea {
+    width: 100%; border: 1px solid var(--line); border-radius: 10px; padding: 11px 12px;
+    font-size: 15px; font-family: 'Work Sans', sans-serif; background: var(--bg); color: var(--ink);
+  }
+  .field input:focus, .field textarea:focus { outline: 2px solid var(--pine); outline-offset: 1px; }
+  .field textarea { resize: vertical; min-height: 64px; }
+  .field-hint { font-size: 12px; color: var(--ink-faint); margin-top: 4px; }
+  .divider-label {
+    font-size: 12px; font-weight: 700; color: var(--pine); text-transform: none;
+    margin: 22px 0 10px; padding-top: 14px; border-top: 1px solid var(--line);
+  }
+  .photo-row { display: flex; gap: 10px; margin-bottom: 10px; }
+  .photo-btn {
+    flex: 1; border: 1px solid var(--line); background: var(--surface); border-radius: 10px;
+    padding: 10px; font-size: 13.5px; font-weight: 600; color: var(--pine); cursor: pointer;
+    font-family: 'Work Sans', sans-serif; display: flex; align-items: center; justify-content: center; gap: 6px;
+  }
+  .photo-btn:active { background: var(--pine-tint); }
+  .photo-count { font-weight: 500; color: var(--ink-faint); margin-left: 6px; font-size: 12.5px; }
+  .photo-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .photo-empty {
+    grid-column: 1 / -1; height: 100px; border-radius: 10px; border: 1px dashed var(--line);
+    display: flex; align-items: center; justify-content: center; background: var(--bg);
+    font-size: 11.5px; color: var(--ink-faint);
+  }
+  .photo-thumb {
+    position: relative; aspect-ratio: 1 / 1; border-radius: 10px; border: 1px solid var(--line);
+    overflow: hidden; background: var(--bg); display: flex; align-items: center; justify-content: center;
+  }
+  .photo-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; cursor: zoom-in; }
+  .photo-thumb .ph-empty { font-size: 11.5px; color: var(--ink-faint); text-align: center; padding: 6px; }
+  .photo-thumb .ph-remove {
+    position: absolute; top: 4px; right: 4px; background: rgba(30,42,34,.7); color: #fff; border: none;
+    border-radius: 50%; width: 26px; height: 26px; font-size: 16px; cursor: pointer; line-height: 1;
+  }
+  /* 방문 기록 목록의 사진들 (여러 장이면 줄바꿈) */
+  .photo-list { display: flex; flex-wrap: wrap; gap: 8px; }
+  .photo-list .photo-preview { cursor: zoom-in; }
+
+  /* ---- 사진 확대 보기 (새 모달) ---- */
+  .photo-viewer {
+    position: fixed; inset: 0; z-index: 70; background: #000; /* 입력창(50)보다 위, 안내 메시지(80)보다 아래 */
+    display: none; align-items: center; justify-content: center; touch-action: pinch-zoom;
+    box-sizing: border-box;
+    /* 위쪽 버튼 줄과 사진이 겹치지 않도록 사진 영역을 아래로 내린다 */
+    padding: calc(52px + env(safe-area-inset-top, 0px)) 0 calc(16px + env(safe-area-inset-bottom, 0px));
+  }
+  .photo-viewer.active { display: flex; }
+  .pv-top {
+    position: absolute; top: 0; left: 0; right: 0; z-index: 2; display: flex; align-items: center; justify-content: space-between;
+    padding: calc(8px + env(safe-area-inset-top, 0px)) 12px 8px;
+  }
+  /* 사진이 밝아도 잘 보이도록: 진한 바탕 + 흰 테두리 + 흰 글자 */
+  .pv-count, .pv-close, .pv-nav {
+    background: #1b2a21; color: #fff; border: 1.5px solid #fff; box-shadow: 0 2px 8px rgba(0,0,0,.5);
+  }
+  .pv-count { font-size: 13px; font-weight: 700; letter-spacing: .03em; padding: 4px 12px; border-radius: 999px; }
+  .pv-close { width: 34px; height: 34px; border-radius: 50%; font-size: 22px; line-height: 1; cursor: pointer; padding: 0; }
+  .pv-img { max-width: 100%; max-height: 100%; object-fit: contain; display: block; }
+  .pv-nav {
+    position: absolute; top: 50%; transform: translateY(-50%); z-index: 2; width: 26px; height: 42px;
+    border-radius: 8px; font-size: 20px; line-height: 1; cursor: pointer; padding: 0;
+    background: rgba(27,42,33,.72); box-shadow: none;
+  }
+  .pv-prev { left: 4px; } .pv-next { right: 4px; }
+
+  .delete-link { color: var(--danger); background: none; border: none; font-size: 13px; font-weight: 600; cursor: pointer; padding: 4px 0; }
+
+  .toast {
+    position: fixed; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); left: 50%; transform: translateX(-50%);
+    background: var(--ink); color: var(--bg); padding: 10px 18px; border-radius: 999px; font-size: 13.5px;
+    z-index: 80; opacity: 0; pointer-events: none; transition: opacity .25s ease, transform .25s ease;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(-4px); }
+
+  /* ---- 병원별 필터 칩 ---- */
+  .sub-row { display: flex; align-items: flex-start; gap: 12px; margin-top: 4px; }
+  #visit-disease-sub { padding-top: 5px; flex: 0 0 auto; }
+  .hospital-chips { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+  .hchip {
+    border: 1.5px solid var(--pine); color: var(--pine); background: transparent;
+    border-radius: 999px; padding: 4px 11px; font-size: 13px; font-weight: 600; font-family: inherit; cursor: pointer;
+  }
+  .hchip.active { background: var(--pine); color: #fff; }
+  .hchip-clear { background: none; border: none; color: var(--ink-faint); font-size: 13px; font-family: inherit; text-decoration: underline; cursor: pointer; padding: 4px 4px; align-self: center; white-space: nowrap; }
+
+  /* ---- 비밀번호(잠금) 화면 ---- */
+  .pin-screen {
+    position: fixed; inset: 0; z-index: 90; background: var(--bg); display: none; flex-direction: column;
+    padding: calc(12px + env(safe-area-inset-top, 0px)) 24px calc(20px + env(safe-area-inset-bottom, 0px)); overflow-y: auto;
+  }
+  .pin-screen.active { display: flex; }
+  .pin-cancel { align-self: flex-start; background: none; border: none; color: var(--ink-soft); font-size: 15px; font-family: inherit; cursor: pointer; padding: 8px 0; }
+  .pin-body { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; max-width: 320px; margin: 0 auto; }
+  .pin-title { font-size: 17px; font-weight: 700; color: var(--ink); text-align: center; margin: 0 0 18px; line-height: 1.5; word-break: keep-all; }
+  .pin-sub { font-size: 13.5px; color: var(--ink-soft); text-align: center; line-height: 1.6; margin: -8px 0 16px; word-break: keep-all; }
+  .pin-dots { display: flex; gap: 14px; justify-content: center; margin-bottom: 10px; }
+  .pin-dots span { width: 14px; height: 14px; border-radius: 50%; border: 1.5px solid var(--ink-faint); box-sizing: border-box; transition: background .1s ease, border-color .1s ease; }
+  .pin-dots span.filled { background: var(--pine); border-color: var(--pine); }
+  .pin-dots.shake { animation: pinshake .35s ease; }
+  @keyframes pinshake { 0%,100% { transform: translateX(0); } 20% { transform: translateX(-9px); } 40% { transform: translateX(9px); } 60% { transform: translateX(-6px); } 80% { transform: translateX(6px); } }
+  .pin-msg { min-height: 20px; font-size: 13px; color: var(--danger); text-align: center; margin: 0 0 12px; line-height: 1.5; word-break: keep-all; }
+  .pin-pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px 14px; width: 100%; max-width: 280px; }
+  .pin-key {
+    aspect-ratio: 1; width: 100%; border-radius: 50%; border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+    font-size: 26px; font-weight: 600; font-family: inherit; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .pin-key:active { background: var(--pine-tint); }
+  .pin-key.ghost { border-color: transparent; background: transparent; color: var(--ink-soft); }
+  .pin-hint-btn { background: none; border: none; color: var(--pine); font-size: 14px; font-weight: 600; font-family: inherit; text-decoration: underline; cursor: pointer; margin-top: 22px; padding: 6px 8px; }
+  .pin-hint-text { background: var(--pine-tint); color: var(--ink); border-radius: 12px; padding: 12px 14px; font-size: 14.5px; line-height: 1.6; margin: 10px 0 0; text-align: center; word-break: keep-all; white-space: pre-wrap; }
+  #pin-hint-input {
+    width: 100%; box-sizing: border-box; border: 1px solid var(--line); border-radius: 12px; padding: 13px 14px; font-size: 16px;
+    font-family: inherit; background: var(--surface); color: var(--ink); margin-bottom: 12px;
+  }
+  #pin-hint-input:focus { outline: 2px solid var(--pine); outline-offset: 1px; }
+  #pin-view-hint { width: 100%; }
+
+  /* ---- 설정 화면(비밀번호 관리 / 데이터 백업) ---- */
+  .settings-section-title { font-size: 12.5px; font-weight: 700; color: var(--ink-faint); margin: 20px 2px 2px; }
+  .settings-section-title:first-child { margin-top: 2px; }
+
+  /* ---- 병원에 쓴 돈 ---- */
+  .money-wrap { position: relative; }
+  .money-wrap input { padding-right: 34px; }
+  .money-unit { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); font-size: 14px; color: var(--ink-soft); pointer-events: none; }
+
+  /* ---- 호전상태 1~5 선택 ---- */
+  .scale { margin: 2px 0 8px; }
+  .scale-anchors, .scale-opts { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); text-align: center; }
+  .scale-anchors span { font-size: 12px; font-weight: 600; color: var(--ink-soft); white-space: nowrap; text-align: center; }
+  .scale-opts { margin-top: 2px; }
+  .scale-opt { position: relative; display: flex; justify-content: center; padding: 6px 0 4px; cursor: pointer; }
+  .scale-opt input { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+  .scale-opt .dot {
+    width: 28px; height: 28px; border-radius: 50%; box-sizing: border-box;
+    display: flex; align-items: center; justify-content: center;
+    border: 2px solid var(--ink-faint); background: var(--surface); color: var(--ink-soft);
+    font-size: 13px; font-weight: 700; transition: background .12s ease, border-color .12s ease, color .12s ease;
+  }
+  .scale-opt input:checked + .dot { background: var(--pine); border-color: var(--pine); color: #fff; }
+  .scale-opt input:focus-visible + .dot { outline: 2px solid var(--pine); outline-offset: 2px; }
+  .scale-foot { text-align: right; }
+  .scale-clear { background: none; border: none; color: var(--ink-faint); font-size: 12px; font-family: inherit; cursor: pointer; padding: 2px 0; text-decoration: underline; }
+
+  /* ---- 설정(톱니바퀴) 버튼 ---- */
+  .section-head.has-gear { align-items: center; }
+  .gear-btn { background: none; border: none; color: var(--pine); cursor: pointer; padding: 8px; margin-right: -8px; line-height: 0; border-radius: 50%; }
+  .gear-btn:active { background: var(--pine-tint); }
+
+  /* ---- 병원 정보 박스 (전화번호 / 주소) ---- */
+  .hinfo-box { margin-top: 12px; border: 1.5px solid var(--pine); border-radius: 14px; padding: 9px 14px 10px; background: var(--surface); }
+  .hinfo-title { font-size: 13px; font-weight: 700; color: var(--pine); margin: 0 0 4px; }
+  .hinfo-row { display: grid; grid-template-columns: 58px 1fr; align-items: center; gap: 8px; margin-bottom: 3px; }
+  .hinfo-row.has-call { grid-template-columns: 58px 1fr auto; }
+  .hinfo-call {
+    background: var(--pine); color: #fff; border-radius: 999px; padding: 4px 13px; font-size: 13px; font-weight: 600;
+    text-decoration: none; white-space: nowrap; display: inline-flex; align-items: center; gap: 5px;
+  }
+  .hinfo-call:active { background: var(--pine-dark); }
+  .hinfo-row label { font-size: 13px; font-weight: 600; color: var(--ink-soft); }
+  .hinfo-row input {
+    width: 100%; box-sizing: border-box; border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px;
+    font-size: 14.5px; font-family: inherit; background: var(--bg); color: var(--ink); min-width: 0;
+  }
+  .hinfo-row input:focus { outline: 2px solid var(--pine); outline-offset: 1px; }
+  .hinfo-row input[readonly] { background: transparent; border-color: transparent; padding: 2px 0; }
+  .hinfo-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; }
+  .hinfo-actions button { width: auto; padding: 5px 16px; font-size: 13.5px; }
+
+  /* ---- 하단 배너광고 (2페이지부터) ---- */
+  #ad-banner {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; /* 입력창(50)보다 아래 */
+    display: none; justify-content: center; align-items: center;
+    background: var(--surface); border-top: 1px solid var(--line);
+    padding: 4px 0 calc(4px + env(safe-area-inset-bottom, 0px));
+  }
+  body.has-banner #ad-banner { display: flex; }
+  #ad-banner .ad-slot {
+    width: 100%; max-width: 468px; height: 50px; box-sizing: border-box;
+    display: flex; align-items: center; justify-content: center;
+    border: 1px dashed var(--line); border-radius: 6px; color: var(--ink-faint); font-size: 12px;
+  }
+  body.has-banner .page { padding-bottom: calc(40px + 66px + env(safe-area-inset-bottom, 0px)); }
+  body.has-banner .toast { bottom: calc(90px + env(safe-area-inset-bottom, 0px)); }
+</style>
+
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="병원방문 스스로 정리앱">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#7c3aed">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <script>
+    if('serviceWorker' in navigator){
+      window.addEventListener('load',()=>{
+        navigator.serviceWorker.register('./service-worker.js');
+      });
+    }
+    window.addEventListener('beforeinstallprompt',e=>{
+      e.preventDefault();
+      window._pwaE=e;
+      var b=document.createElement('div');
+      b.style='position:fixed;bottom:0;left:0;right:0;background:#7c3aed;color:#fff;padding:18px;text-align:center;z-index:9999;font-size:15px;font-weight:bold;cursor:pointer;font-family:sans-serif;';
+      b.innerHTML='📲 홈화면에 앱 추가하기 · Add to Home Screen';
+      b.onclick=async function(){window._pwaE.prompt();var r=await window._pwaE.userChoice;if(r.outcome==='accepted')b.remove();};
+      document.body.appendChild(b);
+    });
+  </script>
+</head>
+<body>
+<div id="app">
+
+  <!-- ===================== 1. 타이틀 페이지 ===================== -->
+  <section class="page active" id="page-title">
+    <div class="mark">
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 21c-4.8-3.2-8-6.6-8-10.4C4 7 6.2 5 9 5c1.6 0 2.6.7 3 1.4C12.4 5.7 13.4 5 15 5c2.8 0 5 2 5 5.6 0 3.8-3.2 7.2-8 10.4z" stroke="#2F6F5E" stroke-width="1.6" stroke-linejoin="round"/>
+        <path d="M12 9v6M9 12h6" stroke="#2F6F5E" stroke-width="1.6" stroke-linecap="round"/>
+      </svg>
+    </div>
+    <h1>병원방문<br>스스로 정리앱</h1>
+    <p>병원에 다녀온 날의 기억이 흐려지기 전에,<br>진료 내용을 나만의 방식으로 차곡차곡 남겨보세요.</p>
+
+    <div style="width:100%; max-width:280px;">
+      <button class="btn-primary is-off" id="start-btn" aria-disabled="true" onclick="handleStart()">시작하기</button>
+    </div>
+
+    <div style="width:100%; max-width:300px; background:var(--pine-tint); border-radius:12px; padding:14px 16px; text-align:left; margin-top:18px;">
+      <p style="font-size:12.5px; line-height:1.6; color:var(--ink-soft); margin:0 0 10px;">
+        이 앱은 병원에 다녀온 이야기를 편하게 남겨두는 <strong style="color:var(--ink);">나만의 메모장</strong>이에요.
+        병원의 공식 진료기록이 아니라 내가 다시 들여다보기 위한 기록이니, 나중에 언제든 자유롭게 고쳐 쓰셔도 괜찮아요.
+      </p>
+      <label style="display:flex; align-items:flex-start; gap:8px; font-size:13px; color:var(--ink); cursor:pointer;">
+        <input type="checkbox" id="agree-checkbox" onchange="onAgreeChange()" style="margin-top:2px; width:16px; height:16px; flex-shrink:0; accent-color: var(--pine);">
+        <span>네, 저만의 기록용 메모라는 걸 확인했어요.</span>
+      </label>
+    </div>
+  </section>
+
+  <!-- ===================== 2. 대상자(별칭) 선택 페이지 ===================== -->
+  <section class="page" id="page-person">
+    <div class="topbar">
+      <button class="back-btn" onclick="goBackCustom()">‹ 뒤로</button>
+    </div>
+    <div class="section-head"><h2>누구의 기록인가요?</h2></div>
+    <p style="color:var(--ink-soft); font-size:14px; margin:6px 0 0;">기존 별칭을 누르면 바로 이어서 기록하고, 새 별칭을 만들면 그 사람의 기록을 새로 시작해요.</p>
+
+    <div id="person-list" class="list"></div>
+
+    <div id="person-empty" class="empty-state" style="display:none;">
+      <p>아직 등록된 대상이 없어요.<br>먼저 기록할 사람의 별칭을 만들어주세요.</p>
+    </div>
+
+    <div class="footer-add">
+      <button class="btn-ghost" onclick="openPersonSheet()">+ 새로운 사람 추가</button>
+    </div>
+  </section>
+
+  <!-- ===================== 3. 병명 리스트 페이지 ===================== -->
+  <section class="page" id="page-disease">
+    <div class="topbar">
+      <button class="back-btn" onclick="goBackCustom()">‹ 뒤로</button>
+      <span class="who" id="disease-who"></span>
+    </div>
+    <div class="section-head has-gear"><h2>아픈 곳</h2><button type="button" class="gear-btn" aria-label="설정" onclick="openSettings()"><svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor" aria-hidden="true"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg></button></div>
+
+    <div id="disease-list" class="list"></div>
+
+    <div id="disease-empty" class="empty-state" style="display:none;">
+      <p>아직 등록된 병명이 없어요.<br>아픈 부위와 병명을 먼저 기록해보세요.</p>
+    </div>
+
+    <div class="footer-add">
+      <button class="btn-primary" onclick="openDiseaseSheet()">+ 병명 추가</button>
+    </div>
+  </section>
+
+  <!-- ===================== 4. 방문기록 페이지 ===================== -->
+  <section class="page" id="page-visit">
+    <div class="topbar">
+      <button class="back-btn" onclick="goBackCustom()">‹ 뒤로</button>
+      <span class="who" id="visit-who"></span>
+    </div>
+    <div class="section-head has-gear"><h2 id="visit-disease-title">방문 기록</h2><button type="button" class="gear-btn" aria-label="설정" onclick="openSettings()"><svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor" aria-hidden="true"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg></button></div>
+    <div class="sub-row">
+      <p id="visit-disease-sub" style="color:var(--ink-soft); font-size:13.5px; margin:0;"></p>
+      <div class="hospital-chips" id="hospital-chips"></div>
+    </div>
+    <div class="hinfo-box" id="hospital-info-box" style="display:none;"></div>
+
+    <div id="visit-list" style="margin-top:14px;"></div>
+
+    <div id="visit-empty" class="empty-state" style="display:none;">
+      <p>아직 방문 기록이 없어요.<br>병원에 다녀온 날의 이야기를 자세히 남겨보세요.</p>
+      <button class="btn-primary" onclick="openVisitSheet()">내용 입력하기</button>
+    </div>
+
+    <div class="footer-add" id="visit-add-footer" style="display:none;">
+      <button class="btn-primary" onclick="openVisitSheet()">+ 방문 기록 추가</button>
+    </div>
+  </section>
+
+</div>
+
+<!-- ===================== 바텀시트: 새 대상자 추가 ===================== -->
+<div class="sheet-overlay" id="sheet-person" onclick="closeSheetOnOverlay(event,'sheet-person')">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-head"><h3>새로운 사람 추가</h3><button class="sheet-close" onclick="closeSheet('sheet-person')">&times;</button></div>
+    <div class="sheet-body">
+      <div class="field">
+        <label for="input-person-name">이름보다는 별칭으로 등록해주세요.</label>
+        <input type="text" id="input-person-name" placeholder="예: 나, 엄마, 첫째 아이">
+      </div>
+      <div class="sheet-save-area"><button class="btn-primary" onclick="savePerson()">추가하기</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== 중앙 안내 창: 방문 기록 저장 완료 ===================== -->
+<div class="sheet-overlay center-modal" id="sheet-saved" onclick="closeSheetOnOverlay(event,'sheet-saved')">
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="saved-msg">
+    <div class="sheet-body" style="padding: 30px 24px 10px; text-align: center;">
+      <p id="saved-msg" style="font-size:16px; line-height:1.75; color:var(--ink); margin:0; word-break:keep-all;">
+        병원 다녀오시느라<br>고생 많으셨어요.<br>
+        <span style="color:var(--pine); font-weight:600;">방문 기록이 잘 저장되었습니다.</span>
+      </p>
+    </div>
+    <div class="sheet-foot"><button class="btn-primary" onclick="closeSheet('sheet-saved')">확인</button></div>
+  </div>
+</div>
+
+<!-- ===================== 바텀시트: 비밀번호를 만들까요? ===================== -->
+<div class="sheet-overlay" id="sheet-pin-ask" onclick="closeSheetOnOverlay(event,'sheet-pin-ask')">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-head"><h3>비밀번호를 만들까요?</h3><button class="sheet-close" onclick="closeSheet('sheet-pin-ask')">&times;</button></div>
+    <div class="sheet-body" style="display:flex; flex-direction:column; gap:10px; padding-bottom:22px;">
+      <p style="font-size:13.5px; color:var(--ink-soft); line-height:1.6; margin:0 0 4px;">만들면 앱을 열 때마다 4자리 번호를 물어봐요.</p>
+      <button type="button" class="btn-primary" onclick="choosePinNone()">그냥 편히 쓸게요</button>
+      <button type="button" class="btn-ghost" onclick="choosePinCreate()">네. 만들어 주세요.</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== 비밀번호 화면 (만들기 / 입력) ===================== -->
+<div class="pin-screen" id="pin-screen" role="dialog" aria-modal="true">
+  <button type="button" class="pin-cancel" id="pin-cancel-btn" onclick="cancelPin()">‹ 처음으로</button>
+  <div class="pin-body">
+    <div id="pin-view-keypad" style="width:100%; display:flex; flex-direction:column; align-items:center;">
+      <p class="pin-title" id="pin-title"></p>
+      <div class="pin-dots" id="pin-dots"><span></span><span></span><span></span><span></span></div>
+      <p class="pin-msg" id="pin-msg" aria-live="polite"></p>
+      <div class="pin-pad">
+        <button type="button" class="pin-key" onclick="pinKey('1')">1</button><button type="button" class="pin-key" onclick="pinKey('2')">2</button><button type="button" class="pin-key" onclick="pinKey('3')">3</button><button type="button" class="pin-key" onclick="pinKey('4')">4</button><button type="button" class="pin-key" onclick="pinKey('5')">5</button><button type="button" class="pin-key" onclick="pinKey('6')">6</button><button type="button" class="pin-key" onclick="pinKey('7')">7</button><button type="button" class="pin-key" onclick="pinKey('8')">8</button><button type="button" class="pin-key" onclick="pinKey('9')">9</button>
+        <span></span>
+        <button type="button" class="pin-key" onclick="pinKey('0')">0</button>
+        <button type="button" class="pin-key ghost" onclick="pinBack()" aria-label="지우기"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 5H9l-6 7 6 7h12a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1z"/><path d="M17 9.5l-5 5M12 9.5l5 5"/></svg></button>
+      </div>
+      <div id="pin-hint-area" style="display:none; width:100%; text-align:center;">
+        <button type="button" class="pin-hint-btn" id="pin-hint-toggle" onclick="togglePinHint()">비밀번호 힌트 보기</button>
+        <p class="pin-hint-text" id="pin-hint-text" style="display:none;"></p>
+      </div>
+    </div>
+    <div id="pin-view-hint" style="display:none;">
+      <p class="pin-title">비밀번호 힌트 문장을<br>적어주세요</p>
+      <p class="pin-sub">잊어버렸을 때 입장 화면에서 볼 수 있는 문장이에요.<br>번호 자체는 적지 마세요.</p>
+      <input type="text" id="pin-hint-input" maxlength="60" placeholder="예: 우리 강아지 생일" autocomplete="off">
+      <p class="pin-msg" id="pin-hint-msg" aria-live="polite"></p>
+      <button type="button" class="btn-primary" onclick="savePinWithHint()">저장하고 시작하기</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== 바텀시트: 설정 ===================== -->
+<div class="sheet-overlay" id="sheet-settings" onclick="closeSheetOnOverlay(event,'sheet-settings')">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-head"><h3>설정</h3><button class="sheet-close" onclick="closeSheet('sheet-settings')">&times;</button></div>
+    <div class="sheet-body">
+      <div id="settings-content"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== 바텀시트: 병명 추가 ===================== -->
+<div class="sheet-overlay" id="sheet-disease" onclick="closeSheetOnOverlay(event,'sheet-disease')">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-head"><h3>병명 추가</h3><button class="sheet-close" onclick="closeSheet('sheet-disease')">&times;</button></div>
+    <div class="sheet-body">
+      <div class="field">
+        <label for="input-body-part">아픈 부위</label>
+        <input type="text" id="input-body-part" placeholder="예: 왼쪽 무릎, 위, 피부">
+      </div>
+      <div class="field">
+        <label for="input-disease-name">병 명칭</label>
+        <input type="text" id="input-disease-name" placeholder="예: 퇴행성 관절염">
+      </div>
+      <div class="field">
+        <label for="input-disease-detail">세부설명</label>
+        <textarea id="input-disease-detail" placeholder="처음 알게 된 경위나 증상 등을 간단히 적어보세요."></textarea>
+      </div>
+      <div class="sheet-save-area"><button class="btn-primary" onclick="saveDisease()">저장하기</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== 바텀시트: 방문 기록 입력 ===================== -->
+<div class="sheet-overlay" id="sheet-visit" onclick="closeSheetOnOverlay(event,'sheet-visit')">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-head"><h3>방문 기록 입력하기</h3><button class="sheet-close" onclick="closeSheet('sheet-visit')">&times;</button></div>
+    <div class="sheet-body">
+      <div class="field">
+        <label for="input-visit-date">방문 날짜</label>
+        <input type="date" id="input-visit-date">
+      </div>
+      <div class="field">
+        <label for="input-visit-hospital">병원명</label>
+        <input type="text" id="input-visit-hospital" placeholder="예: 서울정형외과">
+      </div>
+      <div class="field">
+        <label for="input-visit-treatment">처치내용</label>
+        <input type="text" id="input-visit-treatment" placeholder="예: X-ray 촬영, 물리치료">
+      </div>
+      <div class="field">
+        <label for="input-visit-next">다음 방문예정일 <span style="font-weight:400; color:var(--ink-faint);">(선택)</span></label>
+        <input type="date" id="input-visit-next">
+      </div>
+
+      <div class="divider-label">진료 상세</div>
+      <div class="field">
+        <label for="input-visit-doctor">담당의사명 (별칭 포함)</label>
+        <input type="text" id="input-visit-doctor" placeholder="예: 김OO 원장">
+      </div>
+      <div class="field">
+        <label for="input-visit-consult">상담내용</label>
+        <textarea id="input-visit-consult" placeholder="의사와 나눈 이야기를 적어보세요."></textarea>
+      </div>
+      <div class="field">
+        <label for="input-visit-pharmacy">약국명</label>
+        <input type="text" id="input-visit-pharmacy" placeholder="예: 온누리약국">
+      </div>
+      <div class="field">
+        <label>처방약 사진 <span class="photo-count" id="count-medPhotos">0/6</span></label>
+        <div class="photo-row">
+          <button type="button" class="photo-btn" onclick="triggerPhotoInput('medPhotos', true)">📷 촬영</button>
+          <button type="button" class="photo-btn" onclick="triggerPhotoInput('medPhotos', false)">🖼 앨범</button>
+        </div>
+        <div class="photo-grid" id="preview-medPhotos"><div class="photo-empty">사진 없음</div></div>
+      </div>
+
+      <div class="field">
+        <label for="input-visit-medication">처방약 (처방약 사진을 참고하여 작성)</label>
+        <textarea id="input-visit-medication" placeholder="처방받은 약 이름과 복용법을 적어보세요."></textarea>
+      </div>
+
+      <div class="field">
+        <label>아픈 부위 사진 (선택사항) <span class="photo-count" id="count-woundPhotos">0/6</span></label>
+        <div class="photo-row">
+          <button type="button" class="photo-btn" onclick="triggerPhotoInput('woundPhotos', true)">📷 촬영</button>
+          <button type="button" class="photo-btn" onclick="triggerPhotoInput('woundPhotos', false)">🖼 앨범</button>
+        </div>
+        <div class="photo-grid" id="preview-woundPhotos"><div class="photo-empty">사진 없음</div></div>
+      </div>
+
+      <div class="field">
+        <label for="input-visit-improve">호전상태</label>
+        <div class="scale" role="radiogroup" aria-label="호전 정도 (1 증상 심함 ~ 5 완치)">
+          <div class="scale-anchors"><span>증상 심함</span><span></span><span>증상 완화</span><span></span><span>완치</span></div>
+          <div class="scale-opts"><label class="scale-opt"><input type="radio" name="improve-score" value="1" aria-label="1점"><span class="dot">1</span></label><label class="scale-opt"><input type="radio" name="improve-score" value="2" aria-label="2점"><span class="dot">2</span></label><label class="scale-opt"><input type="radio" name="improve-score" value="3" aria-label="3점"><span class="dot">3</span></label><label class="scale-opt"><input type="radio" name="improve-score" value="4" aria-label="4점"><span class="dot">4</span></label><label class="scale-opt"><input type="radio" name="improve-score" value="5" aria-label="5점"><span class="dot">5</span></label></div>
+          <div class="scale-foot"><button type="button" class="scale-clear" onclick="clearImproveScore()">선택 해제</button></div>
+        </div>
+        <input type="text" id="input-visit-improve" placeholder="호전상태의 세부사항에 대해서 적어보세요.">
+      </div>
+      <div class="field">
+        <label for="input-visit-opinion">본인의 생각</label>
+        <textarea id="input-visit-opinion" placeholder="스스로 느낀 점이나 궁금한 점을 적어보세요."></textarea>
+      </div>
+      <div class="field">
+        <label for="input-visit-cost">병원에 쓴 돈</label>
+        <div class="money-wrap">
+          <input type="text" id="input-visit-cost" inputmode="numeric" pattern="[0-9]*" autocomplete="off" placeholder="숫자만 입력 (예: 12000)"
+                 oninput="onCostInput(this)" onfocus="onCostFocus(this)" onblur="onCostBlur(this)">
+          <span class="money-unit">원</span>
+        </div>
+      </div>
+      <div class="field">
+        <label for="input-visit-etc">기타사항</label>
+        <textarea id="input-visit-etc" placeholder="그 밖에 남기고 싶은 내용."></textarea>
+      </div>
+      <div class="sheet-save-area"><button class="btn-primary" id="btn-save-visit" onclick="saveVisit()">저장하기</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== 바텀시트: 이용 안내 확인 필요 ===================== -->
+<div class="sheet-overlay center-modal" id="sheet-notice" onclick="closeSheetOnOverlay(event,'sheet-notice')">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-head"><h3>안내</h3><button class="sheet-close" onclick="closeSheet('sheet-notice')">&times;</button></div>
+    <div class="sheet-body">
+      <p style="font-size:14.5px; line-height:1.65; color:var(--ink); margin:0;">아래의 안내글을 먼저 읽으시고 체크해주세요.</p>
+    </div>
+    <div class="sheet-foot"><button class="btn-primary" onclick="closeSheet('sheet-notice')">닫기</button></div>
+  </div>
+</div>
+
+<!-- 숨겨진 파일 입력 (촬영 / 앨범 공용, JS로 capture 속성 토글) -->
+<!-- ===================== 사진 확대 보기 ===================== -->
+<div class="photo-viewer" id="photo-viewer" onclick="closePhotoViewer()">
+  <div class="pv-top" onclick="event.stopPropagation()">
+    <span class="pv-count" id="pv-count"></span>
+    <button type="button" class="pv-close" onclick="closePhotoViewer()" aria-label="닫기">&times;</button>
+  </div>
+  <button type="button" class="pv-nav pv-prev" id="pv-prev" onclick="event.stopPropagation(); stepPhotoViewer(-1)" aria-label="이전 사진">&#8249;</button>
+  <img class="pv-img" id="pv-img" alt="확대한 사진" onclick="event.stopPropagation()">
+  <button type="button" class="pv-nav pv-next" id="pv-next" onclick="event.stopPropagation(); stepPhotoViewer(1)" aria-label="다음 사진">&#8250;</button>
+</div>
+
+<input type="file" id="hidden-file-input" accept="image/*" style="display:none;">
+
+<div class="toast" id="toast"></div>
+
+<!-- 하단 배너광고 자리 (첫 페이지에서는 숨김) -->
+<div id="ad-banner" aria-label="광고"><div class="ad-slot" id="ad-slot">광고 영역 (테스트)</div></div>
+
+<script>
+/* =========================================================
+   병원방문 스스로 정리앱 - 데이터 & 화면 로직
+   저장 구조: IndexedDB 에 사람(people) -> 병명(diseases) -> 방문기록(visits) 순서로 중첩 저장
+   사진은 기록과 분리해 IndexedDB 'photos' 저장소에 Blob(파일 그대로)으로 저장하고,
+   방문기록에는 사진 id 만 남긴다. (localStorage 5MB 한도 문제 해결)
+   ========================================================= */
+
+const STORAGE_KEY = 'hospitalTracker_people_v1'; // 예전 localStorage 키 (최초 1회 이전(migration)에만 사용)
+const DB_NAME = 'hospitalTracker';
+const DB_VERSION = 1;
+
+let state = {
+  people: [],          // [{id, name, diseases:[...]}]
+  currentPersonId: null,
+  currentDiseaseId: null,
+};
+
+let photoTarget = null;   // 현재 파일 입력이 채울 대상 필드명 ('medPhotos' | 'woundPhotos')
+const MAX_PHOTOS = 6;     // 처방약 사진 / 환부 사진 각각 최대 장수
+const PHOTO_KEYS = ['medPhotos', 'woundPhotos'];
+// 방문 입력 모달에서 임시로 들고 있는 사진 목록. 각 항목: { id(이미 저장된 사진), blob(새로 고른 사진), url(미리보기 주소), owned }
+let tempPhotos = { medPhotos: [], woundPhotos: [] };
+let editingVisitId = null; // null이면 새 방문기록 입력, id가 있으면 해당 방문기록 수정 모드
+
+/* ---------- 저장 / 불러오기 (IndexedDB) ---------- */
+let dbPromise = null;
+function openDB() {
+  if (dbPromise) return dbPromise;
+  dbPromise = new Promise((resolve, reject) => {
+    if (!window.indexedDB) { reject(new Error('IndexedDB 를 쓸 수 없어요')); return; }
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains('kv')) db.createObjectStore('kv');         // 'people' 배열 저장
+      if (!db.objectStoreNames.contains('photos')) db.createObjectStore('photos'); // 사진 Blob 저장 (key = 사진 id)
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+    req.onblocked = () => reject(new Error('저장소가 다른 화면에서 사용 중이에요'));
+  });
+  dbPromise.catch(() => { dbPromise = null; }); // 실패하면 다음에 다시 시도할 수 있게 비움
+  return dbPromise;
+}
+
+function idbGet(store, key) {
+  return openDB().then(db => new Promise((resolve, reject) => {
+    const req = db.transaction(store, 'readonly').objectStore(store).get(key);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  }));
+}
+
+/* 기록(people)은 항상 통째로 저장하고, 사진 추가/삭제는 같은 트랜잭션에 묶어서
+   "기록만 저장되고 사진은 빠지는" 어긋남이 생기지 않게 한다. (성공하면 true, 실패하면 false) */
+function saveState(photoPuts, photoDeletes) {
+  photoPuts = photoPuts || [];
+  photoDeletes = photoDeletes || [];
+  return openDB().then(db => new Promise(resolve => {
+    try {
+      const tx = db.transaction(['kv', 'photos'], 'readwrite', { durability: 'strict' });
+      tx.objectStore('kv').put(state.people, 'people');
+      const photos = tx.objectStore('photos');
+      photoPuts.forEach(p => photos.put(p.blob, p.id));
+      photoDeletes.forEach(id => photos.delete(id));
+      tx.oncomplete = () => resolve(true);
+      tx.onabort = () => { console.error('저장 실패:', tx.error); resolve(false); };
+    } catch (e) {
+      console.error('저장 실패:', e);
+      resolve(false);
+    }
+  })).catch(e => { console.error('저장 실패:', e); return false; });
+}
+
+async function loadState() {
+  try {
+    const saved = await idbGet('kv', 'people');
+    if (Array.isArray(saved)) { normalizePhotoFields(saved); state.people = saved; return; }
+    await migrateFromLocalStorage(); // 저장된 기록이 없으면 예전(localStorage) 기록이 있는지 확인
+  } catch (e) {
+    console.error('불러오기 실패:', e);
+    state.people = [];
+    setTimeout(() => alert('기록 저장소를 열지 못했어요.\n앱을 완전히 종료한 뒤 다시 실행해주세요. 예전 기록은 지워지지 않았어요.'), 300);
+  }
+}
+
+/* 예전 버전(localStorage + base64 사진)의 기록을 새 저장소로 옮긴다.
+   새 저장소에 저장이 성공한 뒤에만 예전 기록을 지운다. */
+async function migrateFromLocalStorage() {
+  let raw = null;
+  try { raw = localStorage.getItem(STORAGE_KEY); } catch (e) { /* 무시 */ }
+  if (!raw) return;
+  let people;
+  try { people = JSON.parse(raw); } catch (e) { console.error('예전 기록 읽기 실패:', e); return; }
+  if (!Array.isArray(people)) return;
+
+  const puts = extractPhotos(people);
+  state.people = people;
+  const ok = await saveState(puts, []);
+  if (!ok) { state.people = []; throw new Error('예전 기록 이전 실패'); }
+  try { localStorage.removeItem(STORAGE_KEY); } catch (e) { /* 무시 */ }
+  showToast('기존 기록을 새 저장소로 옮겼어요.');
+}
+
+/* 기기 저장공간이 부족해도 브라우저가 기록을 임의로 지우지 않도록 '영구 저장'을 요청한다 */
+function requestPersistentStorage() {
+  try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) { /* 무시 */ }
+}
+
+/* ---------- 사진 도우미 ---------- */
+const photoUrlCache = new Map(); // 사진 id -> 화면에 보여줄 임시 주소(blob URL)
+
+function getPhotoUrl(id) {
+  if (!id) return Promise.resolve(null);
+  if (photoUrlCache.has(id)) return Promise.resolve(photoUrlCache.get(id));
+  return idbGet('photos', id).then(blob => {
+    if (!blob) return null;
+    if (photoUrlCache.has(id)) return photoUrlCache.get(id);
+    const url = URL.createObjectURL(blob);
+    photoUrlCache.set(id, url);
+    return url;
+  }).catch(e => { console.error('사진 읽기 실패:', e); return null; });
+}
+
+function forgetPhotoUrls(ids) {
+  ids.forEach(id => {
+    const url = photoUrlCache.get(id);
+    if (url) { URL.revokeObjectURL(url); photoUrlCache.delete(id); }
+  });
+}
+
+function releaseTempPhotos() {
+  PHOTO_KEYS.forEach(key => {
+    (tempPhotos[key] || []).forEach(t => { if (t.owned && t.url) URL.revokeObjectURL(t.url); });
+  });
+  tempPhotos = { medPhotos: [], woundPhotos: [] };
+}
+
+function dataUrlToBlob(dataUrl) {
+  try {
+    const m = /^data:([^;,]*)(;base64)?,([\s\S]*)$/.exec(dataUrl);
+    if (!m) return null;
+    const bin = m[2] ? atob(m[3]) : decodeURIComponent(m[3]);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return new Blob([bytes], { type: m[1] || 'image/jpeg' });
+  } catch (e) {
+    console.error('사진 변환 실패:', e);
+    return null;
+  }
+}
+
+function blobToDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result);
+    r.onerror = () => reject(r.error);
+    r.readAsDataURL(blob);
+  });
+}
+
+/* 옛 형식(방문마다 사진 1장: medPhoto / woundPhoto)을 새 형식(여러 장: medPhotos / woundPhotos 배열)으로 바꾼다 */
+function normalizePhotoFields(people) {
+  (people || []).forEach(p => (p.diseases || []).forEach(d => (d.visits || []).forEach(v => {
+    [['medPhoto', 'medPhotos'], ['woundPhoto', 'woundPhotos']].forEach(([oldKey, newKey]) => {
+      if (!Array.isArray(v[newKey])) v[newKey] = v[oldKey] ? [v[oldKey]] : [];
+      delete v[oldKey];
+    });
+  })));
+}
+
+/* people 안에 들어있는 base64 사진(옛 방식/백업 파일)을 Blob 으로 빼내고,
+   방문기록에는 새 사진 id 목록만 남긴다. 저장해야 할 사진 목록을 돌려준다. */
+function extractPhotos(people) {
+  normalizePhotoFields(people);
+  const puts = [];
+  (people || []).forEach(p => (p.diseases || []).forEach(d => (d.visits || []).forEach(v => {
+    PHOTO_KEYS.forEach(key => {
+      v[key] = v[key].map(val => {
+        if (typeof val !== 'string' || !val.startsWith('data:')) return null;
+        const blob = dataUrlToBlob(val);
+        if (!blob) return null;
+        const id = 'ph_' + uid();
+        puts.push({ id, blob });
+        return id;
+      }).filter(Boolean);
+    });
+  })));
+  return puts;
+}
+
+/* 화면에 그려진 <img data-photo-id> 에 실제 사진을 채운다 */
+function hydratePhotos(root) {
+  root.querySelectorAll('img[data-photo-id]').forEach(img => {
+    getPhotoUrl(img.dataset.photoId).then(url => {
+      if (url) {
+        img.src = url;
+      } else {
+        const ph = document.createElement('div');
+        ph.className = 'photo-preview-placeholder';
+        ph.textContent = '사진을 불러오지 못했어요';
+        img.replaceWith(ph);
+      }
+    });
+  });
+}
+
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+
+function todayStr() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+function formatDateKR(iso) {
+  if (!iso) return '';
+  const [y,m,d] = iso.split('-');
+  return `${String(y).slice(-2)}.${m}.${d}`;
+}
+function formatDateShort(iso) {
+  if (!iso) return { md:'--', y:'--', dow:'' };
+  const [y,m,d] = iso.split('-');
+  const dow = ['일','월','화','수','목','금','토'][new Date(+y, +m - 1, +d).getDay()] || '';
+  return { md: `${m}.${d}`, y, dow };
+}
+
+/* 다음 방문예정일: 26.09.22(화) 형식 */
+function formatNextVisit(iso) {
+  const [y, m, d] = String(iso).split('-');
+  if (!y || !m || !d) return String(iso);
+  const dow = ['일','월','화','수','목','금','토'][new Date(+y, +m - 1, +d).getDay()] || '';
+  return `${y.slice(-2)}.${m}.${d}${dow ? `(${dow})` : ''}`;
+}
+
+/* ---------- 페이지 전환 ---------- */
+function goPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo(0,0);
+  updateBanner(id);
+}
+
+/* =========================================================
+   하단 배너광고 — 첫 페이지(page-title)에서는 숨기고, 2페이지부터 표시
+   · 지금 들어 있는 ID 는 구글 공식 "테스트 ID" 입니다. 출시 전에 본인 광고 단위 ID 로 교체하세요.
+   · AdMob 은 웹(HTML)에서는 광고가 나오지 않고, 앱으로 감싼 경우(Capacitor + AdMob 플러그인)에만 실제 광고가 뜹니다.
+     플러그인이 없으면 "광고 영역 (테스트)" 자리표시자만 보입니다.
+   ========================================================= */
+const AD_CONFIG = {
+  bannerIdAndroid: 'ca-app-pub-3940256099942544/6300978111', // ← 테스트 배너 ID (Android). 교체 예정
+  bannerIdIos:     'ca-app-pub-3940256099942544/2934735716', // ← 테스트 배너 ID (iOS). 교체 예정
+  isTesting: true,                                            // 출시 때 false 로
+};
+let adNativeShown = false;
+
+function getAdMobPlugin() {
+  try { return window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.AdMob; } catch (e) { return null; }
+}
+async function updateBanner(pageId) {
+  const show = pageId !== 'page-title';
+  document.body.classList.toggle('has-banner', show);
+  const AdMob = getAdMobPlugin();
+  if (!AdMob) return;                       // 웹: 자리표시자만 표시
+  document.getElementById('ad-slot').style.visibility = 'hidden'; // 앱: 실제 광고가 대신 표시됨
+  try {
+    if (show && !adNativeShown) {
+      const isIos = window.Capacitor.getPlatform && window.Capacitor.getPlatform() === 'ios';
+      await AdMob.showBanner({
+        adId: isIos ? AD_CONFIG.bannerIdIos : AD_CONFIG.bannerIdAndroid,
+        adSize: 'ADAPTIVE_BANNER', position: 'BOTTOM_CENTER', margin: 0, isTesting: AD_CONFIG.isTesting,
+      });
+      adNativeShown = true;
+    } else if (!show && adNativeShown) {
+      await AdMob.removeBanner();
+      adNativeShown = false;
+    }
+  } catch (e) { console.warn('배너광고 오류', e); }
+}
+(async () => {
+  const AdMob = getAdMobPlugin();
+  if (AdMob) { try { await AdMob.initialize({ initializeForTesting: AD_CONFIG.isTesting }); } catch (e) { console.warn(e); } }
+})();
+
+/* =========================================================
+   화면 이동은 브라우저의 History API(pushState 등)를 쓰지 않고,
+   앱 자체 스택(navStack)으로 관리한다.
+   -> Claude 미리보기 같은 샌드박스(about:srcdoc) 환경에서는
+      history.pushState/replaceState가 SecurityError를 던지기 때문. */
+let navStack = [{ page: 'page-title' }];
+
+function goPersonPage() {
+  editingPersonId = null;
+  renderPersonList();
+  goPage('page-person');
+  navStack.push({ page: 'page-person' });
+}
+
+function goDiseasePage(personId) {
+  openDiseaseIds.clear(); editingDiseaseId = null;
+  state.currentPersonId = personId;
+  const person = getCurrentPerson();
+  document.getElementById('disease-who').textContent = person ? person.name : '';
+  renderDiseaseList();
+  goPage('page-disease');
+  navStack.push({ page: 'page-disease', personId });
+}
+
+function goVisitPage(diseaseId) {
+  visitHospitalFilter = null;
+  state.currentDiseaseId = diseaseId;
+  const person = getCurrentPerson();
+  const disease = getCurrentDisease();
+  document.getElementById('visit-who').textContent = person ? person.name : '';
+  document.getElementById('visit-disease-title').textContent = disease ? disease.diseaseName : '방문 기록';
+  document.getElementById('visit-disease-sub').textContent = disease ? `${disease.bodyPart}` : '';
+  renderVisitList();
+  goPage('page-visit');
+  navStack.push({ page: 'page-visit', personId: state.currentPersonId, diseaseId });
+}
+
+/* '‹ 뒤로' 버튼: 스택에서 현재 화면을 꺼내고, 그 이전 화면을 다시 그린다.
+   (state.people 데이터는 전혀 건드리지 않으므로 절대 사라지지 않는다) */
+function goBackCustom() {
+  if (isPinScreenOpen()) { cancelPin(); return; }
+  if (document.getElementById('photo-viewer').classList.contains('active')) { closePhotoViewer(); return; }
+  const openSheetEl = document.querySelector('.sheet-overlay.active');
+  if (openSheetEl) { openSheetEl.classList.remove('active'); return; }
+
+  navStack.pop();
+  const prev = navStack[navStack.length - 1] || { page: 'page-title' };
+  applyNavState(prev);
+}
+
+function applyNavState(st) {
+  if (st.personId) state.currentPersonId = st.personId;
+  if (st.diseaseId) state.currentDiseaseId = st.diseaseId;
+
+  if (st.page === 'page-person') {
+    renderPersonList();
+    goPage('page-person');
+  } else if (st.page === 'page-disease') {
+    const person = getCurrentPerson();
+    document.getElementById('disease-who').textContent = person ? person.name : '';
+    renderDiseaseList();
+    goPage('page-disease');
+  } else if (st.page === 'page-visit') {
+    const person = getCurrentPerson();
+    const disease = getCurrentDisease();
+    document.getElementById('visit-who').textContent = person ? person.name : '';
+    document.getElementById('visit-disease-title').textContent = disease ? disease.diseaseName : '방문 기록';
+    document.getElementById('visit-disease-sub').textContent = disease ? `${disease.bodyPart}` : '';
+    renderVisitList();
+    goPage('page-visit');
+  } else {
+    goPage('page-title');
+  }
+}
+
+function getCurrentPerson() {
+  return state.people.find(p => p.id === state.currentPersonId) || null;
+}
+function getCurrentDisease() {
+  const person = getCurrentPerson();
+  if (!person) return null;
+  return person.diseases.find(d => d.id === state.currentDiseaseId) || null;
+}
+
+/* ---------- 2페이지: 대상자 리스트 ---------- */
+function renderPersonList() {
+  const listEl = document.getElementById('person-list');
+  const emptyEl = document.getElementById('person-empty');
+  listEl.innerHTML = '';
+  if (state.people.length === 0) {
+    emptyEl.style.display = 'block';
+    listEl.style.display = 'none';
+    return;
+  }
+  emptyEl.style.display = 'none';
+  listEl.style.display = 'block';
+  state.people.forEach(person => {
+    const diseaseCount = person.diseases.length;
+    const isEdit = editingPersonId === person.id;
+    const row = document.createElement('div');
+    row.className = 'row';
+    row.setAttribute('role', 'button');
+    row.onclick = () => { if (editingPersonId === person.id) return; goDiseasePage(person.id); };
+    row.innerHTML = `
+      <div class="row-main">
+        <div class="p-title-line">
+          ${isEdit
+            ? `<input type="text" class="p-input" id="edit-person-name" placeholder="${escapeHtml(person.name)}" autocomplete="off" enterkeyhint="done">`
+            : `<p class="p-name">${escapeHtml(person.name)}</p>`}
+          <button type="button" class="p-edit-btn${isEdit ? ' done' : ''}">${isEdit ? '완료' : '수정하기'}</button>
+        </div>
+        <p class="row-sub">${diseaseCount > 0 ? `등록된 질환 ${diseaseCount}건` : '등록된 질환 없음'}</p>
+      </div>
+      <span class="chev">›</span>
+    `;
+    const btn = row.querySelector('.p-edit-btn');
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      if (editingPersonId === person.id) finishPersonEdit(person.id);
+      else startPersonEdit(person.id);
+    };
+    if (isEdit) {
+      const input = row.querySelector('.p-input');
+      input.onclick = (e) => e.stopPropagation();
+      input.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); finishPersonEdit(person.id); } };
+    }
+    listEl.appendChild(row);
+  });
+}
+
+/* ---- 별칭 수정: 수정하기 → (기존 글자 지우고 키보드) → 완료 ---- */
+let editingPersonId = null;
+
+function startPersonEdit(id) {
+  editingPersonId = id;
+  renderPersonList();
+  const input = document.getElementById('edit-person-name');
+  if (input) input.focus();          // 눌린 직후 바로 포커스 → 키보드가 올라온다
+}
+
+async function finishPersonEdit(id) {
+  const person = state.people.find(p => p.id === id);
+  const input = document.getElementById('edit-person-name');
+  const name = input ? input.value.trim() : '';
+  editingPersonId = null;
+  if (!person) { renderPersonList(); return; }
+  if (!name || name === person.name) {               // 비웠거나 그대로면 변경 없이 종료
+    renderPersonList();
+    if (!name) showToast('입력이 없어서 기존 이름을 유지했어요.');
+    return;
+  }
+  const oldName = person.name;
+  person.name = name;
+  if (!(await saveState())) {
+    person.name = oldName;
+    renderPersonList();
+    showToast('저장하지 못했어요. 기기 저장공간을 확인해주세요.');
+    return;
+  }
+  renderPersonList();
+  showToast('이름이 수정되었어요.');
+}
+
+function openPersonSheet() {
+  document.getElementById('input-person-name').value = '';
+  openSheet('sheet-person');
+  setTimeout(() => document.getElementById('input-person-name').focus(), 250);
+}
+
+async function savePerson() {
+  const nameInput = document.getElementById('input-person-name');
+  const name = nameInput.value.trim();
+  if (!name) { nameInput.focus(); return; }
+  const newPerson = { id: uid(), name, diseases: [] };
+  state.people.push(newPerson);
+  if (!(await saveState())) {
+    state.people.pop();
+    showToast('저장하지 못했어요. 기기 저장공간을 확인해주세요.');
+    return;
+  }
+  closeSheet('sheet-person');
+  showToast('새로운 대상이 추가되었어요.');
+  goDiseasePage(newPerson.id);
+}
+
+/* ---------- 3페이지: 병명 리스트 ---------- */
+function renderDiseaseList() {
+  const person = getCurrentPerson();
+  const listEl = document.getElementById('disease-list');
+  const emptyEl = document.getElementById('disease-empty');
+  listEl.innerHTML = '';
+  if (!person || person.diseases.length === 0) {
+    emptyEl.style.display = 'block';
+    listEl.style.display = 'none';
+    return;
+  }
+  emptyEl.style.display = 'none';
+  listEl.style.display = 'block';
+  // 최근 업데이트 순으로 정렬
+  const sorted = [...person.diseases].sort((a,b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''));
+  sorted.forEach(disease => {
+    const isOpen = openDiseaseIds.has(disease.id);
+    const isEdit = editingDiseaseId === disease.id;
+    const item = document.createElement('div');
+    item.className = 'd-item' + (isOpen ? ' open' : '');
+    item.id = `disease-item-${disease.id}`;
+    const block = (label, val) => `
+      <div class="detail-block">
+        <p class="db-label">${label}</p>
+        <p class="db-value ${val ? '' : 'empty'}">${escapeHtml(val) || '입력되지 않음'}</p>
+      </div>`;
+    const bodyHtml = isEdit ? `
+      <div class="field"><label for="edit-bodypart-${disease.id}">아픈 부위</label>
+        <input type="text" id="edit-bodypart-${disease.id}" value="${escapeHtml(disease.bodyPart)}"></div>
+      <div class="field"><label for="edit-name-${disease.id}">병 명칭</label>
+        <input type="text" id="edit-name-${disease.id}" value="${escapeHtml(disease.diseaseName)}"></div>
+      <div class="field"><label for="edit-detail-${disease.id}">세부설명</label>
+        <textarea id="edit-detail-${disease.id}">${escapeHtml(disease.detail || '')}</textarea></div>
+      <div class="d-actions">
+        <button type="button" class="btn-ghost" onclick="cancelDiseaseEdit()">취소</button>
+        <button type="button" class="btn-primary" onclick="saveDiseaseEdit('${disease.id}')">저장</button>
+      </div>` : `
+      ${block('아픈 부위', disease.bodyPart)}
+      ${block('병 명칭', disease.diseaseName)}
+      ${block('세부설명', disease.detail)}
+      <div class="d-actions"><button type="button" class="btn-ghost" onclick="startDiseaseEdit('${disease.id}')">수정하기</button></div>`;
+    item.innerHTML = `
+      <div class="d-head">
+        <div class="row-main">
+          <div class="d-title-line">
+            <span class="tag">${escapeHtml(disease.bodyPart)}</span>
+            <p class="d-name">${escapeHtml(disease.diseaseName)}</p>
+            <button type="button" class="d-more" onclick="toggleDiseaseDetail('${disease.id}')">세부설명 <span class="arrow">⌄</span></button>
+          </div>
+          <p class="row-sub">최초입력 ${formatDateKR(disease.createdAt)} · 최종 병원 방문일 ${(disease.visits || []).length ? formatDateKR(disease.updatedAt) : ''}</p>
+        </div>
+        <button type="button" class="d-go" aria-label="병원 기록 보기" onclick="goVisitPage('${disease.id}')">병원 기록 <span class="go-arrow">›</span></button>
+      </div>
+      <div class="d-body"><div class="d-inner">${bodyHtml}</div></div>`;
+    listEl.appendChild(item);
+  });
+}
+
+/* ---- 질환 세부설명 펼치기 / 수정하기 ---- */
+const openDiseaseIds = new Set();
+let editingDiseaseId = null;
+
+function toggleDiseaseDetail(id) {
+  const item = document.getElementById(`disease-item-${id}`);
+  if (!item) return;
+  if (openDiseaseIds.has(id)) {
+    const wasEditing = editingDiseaseId === id;
+    if (wasEditing) editingDiseaseId = null;
+    openDiseaseIds.delete(id);
+    item.classList.remove('open');
+    if (wasEditing) setTimeout(renderDiseaseList, 320);   // 닫힌 뒤 수정 폼을 보기 모드로 되돌림
+  } else {
+    openDiseaseIds.add(id);
+    item.classList.add('open');
+  }
+}
+function startDiseaseEdit(id) { editingDiseaseId = id; openDiseaseIds.add(id); renderDiseaseList(); }
+function cancelDiseaseEdit() { editingDiseaseId = null; renderDiseaseList(); }
+
+async function saveDiseaseEdit(id) {
+  const person = getCurrentPerson();
+  const disease = person && person.diseases.find(d => d.id === id);
+  if (!disease) return;
+  const bodyPart = document.getElementById(`edit-bodypart-${id}`).value.trim();
+  const diseaseName = document.getElementById(`edit-name-${id}`).value.trim();
+  const detail = document.getElementById(`edit-detail-${id}`).value.trim();
+  if (!bodyPart || !diseaseName) { showToast('아픈 부위와 병 명칭을 입력해주세요.'); return; }
+  const backup = { bodyPart: disease.bodyPart, diseaseName: disease.diseaseName, detail: disease.detail };
+  Object.assign(disease, { bodyPart, diseaseName, detail });
+  if (!(await saveState())) {
+    Object.assign(disease, backup);
+    showToast('저장하지 못했어요. 기기 저장공간을 확인해주세요.');
+    return;
+  }
+  editingDiseaseId = null;
+  renderDiseaseList();
+  showToast('수정되었어요.');
+}
+
+function openDiseaseSheet() {
+  document.getElementById('input-body-part').value = '';
+  document.getElementById('input-disease-name').value = '';
+  document.getElementById('input-disease-detail').value = '';
+  openSheet('sheet-disease');
+}
+
+async function saveDisease() {
+  const person = getCurrentPerson();
+  if (!person) return;
+  const bodyPart = document.getElementById('input-body-part').value.trim();
+  const diseaseName = document.getElementById('input-disease-name').value.trim();
+  const detail = document.getElementById('input-disease-detail').value.trim();
+  if (!bodyPart || !diseaseName) {
+    showToast('아픈 부위와 병 명칭을 입력해주세요.');
+    return;
+  }
+  const now = todayStr();
+  person.diseases.push({
+    id: uid(), bodyPart, diseaseName, detail,
+    createdAt: now, updatedAt: now, visits: []
+  });
+  if (!(await saveState())) {
+    person.diseases.pop();
+    showToast('저장하지 못했어요. 기기 저장공간을 확인해주세요.');
+    return;
+  }
+  closeSheet('sheet-disease');
+  showToast('병명이 추가되었어요.');
+  renderDiseaseList();
+}
+
+/* ---------- 4페이지: 방문 기록 리스트 + 아코디언 ---------- */
+/* 방문 기록 목록: 사진 여러 장을 나란히 보여주고, 누르면 확대 보기가 열린다 */
+function visitPhotosHtml(visit, key, label) {
+  const ids = visit[key] || [];
+  if (ids.length === 0) return `<div class="photo-preview-placeholder">사진 없음</div>`;
+  return `<div class="photo-list">` + ids.map((id, i) =>
+    `<img class="photo-preview" src="${PHOTO_PLACEHOLDER}" data-photo-id="${escapeHtml(id)}" alt="${label} ${i + 1}" onclick="openVisitPhoto('${visit.id}','${key}',${i})">`
+  ).join('') + `</div>`;
+}
+
+function openVisitPhoto(visitId, key, index) {
+  const disease = getCurrentDisease();
+  if (!disease) return;
+  const visit = disease.visits.find(v => v.id === visitId);
+  if (!visit) return;
+  openPhotoViewer((visit[key] || []).map(id => ({ id })), index);
+}
+
+const PHOTO_PLACEHOLDER = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
+/* =========================================================
+   병원 정보 박스 (전화번호 / 주소)
+   - 병원 버튼을 눌러 그 병원만 볼 때만 표시, 전체 보기로 돌아가면 사라짐
+   - 사람(person.hospitals) 단위로 병원명별 저장 → 같은 사람의 다른 질환에서도 같은 병원 정보를 공유
+   ========================================================= */
+let hospitalInfoEditing = false;
+function findHospitalInfo(person, name) {
+  return ((person && person.hospitals) || []).find(h => h.name === name) || null;
+}
+function renderHospitalInfoBox() {
+  const box = document.getElementById('hospital-info-box');
+  if (!visitHospitalFilter) { box.style.display = 'none'; box.innerHTML = ''; return; }
+  const info = findHospitalInfo(getCurrentPerson(), visitHospitalFilter);
+  const hasInfo = !!(info && (info.phone || info.address));
+  const editing = !hasInfo || hospitalInfoEditing;
+  const ro = editing ? '' : 'readonly';
+  const callNum = ((info && info.phone) || '').replace(/[^0-9+*#]/g, '');   // 다이얼에 넘길 번호(숫자·+·*·#만)
+  box.style.display = 'block';
+  box.innerHTML = `
+    <p class="hinfo-title">${escapeHtml(visitHospitalFilter)} 정보</p>
+    <div class="hinfo-row${callNum && !editing ? ' has-call' : ''}"><label for="hi-phone">전화번호</label>
+      <input type="tel" inputmode="tel" id="hi-phone" ${ro} value="${escapeHtml(info ? info.phone : '')}" placeholder="${editing ? '예: 02-1234-5678' : ''}">
+      ${callNum && !editing ? `<a class="hinfo-call" href="tel:${escapeHtml(callNum)}"><svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg>통화</a>` : ''}</div>
+    <div class="hinfo-row"><label for="hi-address">주소</label>
+      <input type="text" id="hi-address" ${ro} value="${escapeHtml(info ? info.address : '')}" placeholder="${editing ? '병원 주소' : ''}"></div>
+    <div class="hinfo-actions">
+      ${editing
+        ? `${hasInfo ? '<button type="button" class="btn-ghost" onclick="cancelHospitalInfoEdit()">취소</button>' : ''}<button type="button" class="btn-primary" onclick="saveHospitalInfo()">저장하기</button>`
+        : `<button type="button" class="btn-ghost" onclick="startHospitalInfoEdit()">수정하기</button>`}
+    </div>`;
+}
+function startHospitalInfoEdit() {
+  hospitalInfoEditing = true;
+  renderHospitalInfoBox();
+  const el = document.getElementById('hi-phone');
+  if (el) el.focus();
+}
+function cancelHospitalInfoEdit() { hospitalInfoEditing = false; renderHospitalInfoBox(); }
+async function saveHospitalInfo() {
+  const person = getCurrentPerson();
+  const name = visitHospitalFilter;
+  if (!person || !name) return;
+  const phone = document.getElementById('hi-phone').value.trim();
+  const address = document.getElementById('hi-address').value.trim();
+  if (!phone && !address) { showToast('전화번호나 주소를 입력해주세요.'); return; }
+  if (!Array.isArray(person.hospitals)) person.hospitals = [];
+  let h = findHospitalInfo(person, name);
+  const prev = h ? { phone: h.phone, address: h.address } : null;
+  if (h) { h.phone = phone; h.address = address; }
+  else { h = { name, phone, address }; person.hospitals.push(h); }
+  if (!(await saveState())) {
+    if (prev) Object.assign(h, prev); else person.hospitals.pop();
+    showToast('저장하지 못했어요. 기기 저장공간을 확인해주세요.');
+    return;
+  }
+  hospitalInfoEditing = false;
+  renderHospitalInfoBox();
+  showToast('저장되었어요.');
+}
+
+let visitHospitalFilter = null;   // 선택된 병원명 (null = 전체 보기)
+const hospitalKey = v => (v.hospital || '').trim() || '병원명 미입력';
+
+/* 병원명 칩: "××병원 N회", 가장 최근에 간 병원이 맨 앞 */
+function renderHospitalChips(disease) {
+  const wrap = document.getElementById('hospital-chips');
+  wrap.innerHTML = '';
+  const map = new Map();
+  ((disease && disease.visits) || []).forEach(v => {
+    const k = hospitalKey(v);
+    const g = map.get(k) || { name: k, count: 0, lastDate: '', lastId: '' };
+    g.count++;
+    const d = v.date || '';
+    if (d > g.lastDate || (d === g.lastDate && String(v.id) > g.lastId)) { g.lastDate = d; g.lastId = String(v.id); }
+    map.set(k, g);
+  });
+  if (visitHospitalFilter && !map.has(visitHospitalFilter)) visitHospitalFilter = null;
+  [...map.values()]
+    .sort((a, b) => b.lastDate.localeCompare(a.lastDate) || b.lastId.localeCompare(a.lastId))
+    .forEach(g => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'hchip' + (visitHospitalFilter === g.name ? ' active' : '');
+      btn.textContent = `${g.name} ${g.count}회`;
+      btn.addEventListener('click', () => {
+        visitHospitalFilter = (visitHospitalFilter === g.name) ? null : g.name;   // 다시 누르면 전체 보기
+        hospitalInfoEditing = false;
+        renderVisitList();
+      });
+      wrap.appendChild(btn);
+    });
+  if (visitHospitalFilter) {           // 병원을 골랐을 때만, 병원 버튼들 오른쪽에 글자만 있는 '선택 해제'
+    const clr = document.createElement('button');
+    clr.type = 'button';
+    clr.className = 'hchip-clear';
+    clr.textContent = '선택 해제';
+    clr.addEventListener('click', () => {
+      visitHospitalFilter = null;
+      hospitalInfoEditing = false;
+      renderVisitList();
+    });
+    wrap.appendChild(clr);
+  }
+}
+
+function renderVisitList() {
+  const disease = getCurrentDisease();
+  renderHospitalChips(disease);
+  renderHospitalInfoBox();
+  const listEl = document.getElementById('visit-list');
+  const emptyEl = document.getElementById('visit-empty');
+  const addFooter = document.getElementById('visit-add-footer');
+  listEl.innerHTML = '';
+  if (!disease || disease.visits.length === 0) {
+    emptyEl.style.display = 'block';
+    addFooter.style.display = 'none';
+    return;
+  }
+  emptyEl.style.display = 'none';
+  addFooter.style.display = 'block';
+
+  const sorted = disease.visits.filter(v => !visitHospitalFilter || hospitalKey(v) === visitHospitalFilter).sort((a,b) => (b.date || '').localeCompare(a.date || ''));
+  sorted.forEach(visit => {
+    const { md, y, dow } = formatDateShort(visit.date);
+    const item = document.createElement('div');
+    item.className = 'visit-item';
+    item.id = `visit-item-${visit.id}`;
+
+    const medPhotoHtml = visitPhotosHtml(visit, 'medPhotos', '처방약 사진');
+    const woundPhotoHtml = visitPhotosHtml(visit, 'woundPhotos', '아픈 부위 사진');
+
+    item.innerHTML = `
+      <div class="visit-summary" onclick="toggleAccordion('${visit.id}')">
+        <div class="date-badge">${md}${dow ? `<span class="dow">(${dow})</span>` : ''}<span class="yy">${y}</span></div>
+        <div class="vs-main">
+          <p class="vs-hospital">${escapeHtml(visit.hospital || '병원명 미입력')}</p>
+          <div class="vs-treat-row">
+            <p class="vs-treat">${escapeHtml(visit.treatment || '처치내용 미입력')}</p>
+            ${visit.nextVisit ? `<span class="vs-next">(다음 방문예정일: ${escapeHtml(formatNextVisit(visit.nextVisit))})</span>` : ''}
+          </div>
+          <span class="toggle-label">상세내용 <span class="arrow">⌄</span></span>
+        </div>
+      </div>
+      <div class="accordion-body">
+        <div class="accordion-inner">
+          <div class="detail-block">
+            <p class="db-label">담당의사명 (별칭 포함)</p>
+            <p class="db-value ${visit.doctor ? '' : 'empty'}">${escapeHtml(visit.doctor) || '입력되지 않음'}</p>
+          </div>
+          <div class="detail-block">
+            <p class="db-label">상담내용</p>
+            <p class="db-value ${visit.consult ? '' : 'empty'}">${escapeHtml(visit.consult) || '입력되지 않음'}</p>
+          </div>
+          <div class="detail-block">
+            <p class="db-label">약국명</p>
+            <p class="db-value ${visit.pharmacy ? '' : 'empty'}">${escapeHtml(visit.pharmacy) || '입력되지 않음'}</p>
+          </div>
+          <div class="detail-block">
+            <p class="db-label">처방약 사진${(visit.medPhotos || []).length ? ` · ${visit.medPhotos.length}장` : ''}</p>
+            ${medPhotoHtml}
+          </div>
+          <div class="detail-block">
+            <p class="db-label">처방약 (처방약 사진을 참고하여 작성)</p>
+            <p class="db-value ${visit.medication ? '' : 'empty'}">${escapeHtml(visit.medication) || '입력되지 않음'}</p>
+          </div>
+          <div class="detail-block">
+            <p class="db-label">아픈 부위 사진 (선택사항)${(visit.woundPhotos || []).length ? ` · ${visit.woundPhotos.length}장` : ''}</p>
+            ${woundPhotoHtml}
+          </div>
+          <div class="detail-block">
+            <p class="db-label">호전상태</p>
+            ${improveScoreHtml(visit.improvementScore)}
+            ${(visit.improvement || !visit.improvementScore) ? `<p class="db-value ${visit.improvement ? '' : 'empty'}">${escapeHtml(visit.improvement) || '입력되지 않음'}</p>` : ''}
+          </div>
+          <div class="detail-block">
+            <p class="db-label">본인의 생각</p>
+            <p class="db-value ${visit.opinion ? '' : 'empty'}">${escapeHtml(visit.opinion) || '입력되지 않음'}</p>
+          </div>
+          <div class="detail-block">
+            <p class="db-label">병원에 쓴 돈</p>
+            <p class="db-value ${visit.cost != null ? '' : 'empty'}">${visit.cost != null ? formatMoney(visit.cost) + '원' : '입력되지 않음'}</p>
+          </div>
+          <div class="detail-block">
+            <p class="db-label">기타사항</p>
+            <p class="db-value ${visit.etc ? '' : 'empty'}">${escapeHtml(visit.etc) || '입력되지 않음'}</p>
+          </div>
+          <div style="display:flex; gap:18px; padding-top:12px; border-top:1px solid var(--line); margin-top:2px;">
+            <button class="btn-text" onclick="openVisitSheet('${visit.id}')">수정하기</button>
+            <button class="delete-link" onclick="deleteVisit('${visit.id}')">삭제하기</button>
+          </div>
+        </div>
+      </div>
+    `;
+    listEl.appendChild(item);
+  });
+  hydratePhotos(listEl); // 사진은 저장소에서 읽어서 채운다
+}
+
+function toggleAccordion(visitId) {
+  const item = document.getElementById(`visit-item-${visitId}`);
+  if (!item) return;
+  const wasOpen = item.classList.contains('open');
+  // 하나만 펼쳐지도록 (원치 않으면 이 줄 제거 가능)
+  document.querySelectorAll('.visit-item.open').forEach(el => el.classList.remove('open'));
+  if (!wasOpen) item.classList.add('open');
+}
+
+function openVisitSheet(visitId) {
+  editingVisitId = visitId || null;
+  const disease = getCurrentDisease();
+  const visit = (editingVisitId && disease) ? disease.visits.find(v => v.id === editingVisitId) : null;
+
+  document.getElementById('input-visit-date').value = visit ? visit.date : todayStr();
+  document.getElementById('input-visit-hospital').value = visit ? (visit.hospital || '') : '';
+  document.getElementById('input-visit-treatment').value = visit ? (visit.treatment || '') : '';
+  document.getElementById('input-visit-next').value = visit ? (visit.nextVisit || '') : '';
+  document.getElementById('input-visit-doctor').value = visit ? (visit.doctor || '') : '';
+  document.getElementById('input-visit-consult').value = visit ? (visit.consult || '') : '';
+  document.getElementById('input-visit-pharmacy').value = visit ? (visit.pharmacy || '') : '';
+  document.getElementById('input-visit-medication').value = visit ? (visit.medication || '') : '';
+  document.getElementById('input-visit-improve').value = visit ? (visit.improvement || '') : '';
+  document.querySelectorAll('input[name="improve-score"]').forEach(r => { r.checked = !!(visit && String(visit.improvementScore) === r.value); });
+  document.getElementById('input-visit-opinion').value = visit ? (visit.opinion || '') : '';
+  document.getElementById('input-visit-cost').value = (visit && visit.cost != null) ? formatMoney(visit.cost) : '';
+  document.getElementById('input-visit-etc').value = visit ? (visit.etc || '') : '';
+  releaseTempPhotos();
+  const toEntries = ids => (ids || []).map(id => ({ id, blob: null, url: null, owned: false }));
+  tempPhotos = {
+    medPhotos: toEntries(visit && visit.medPhotos),
+    woundPhotos: toEntries(visit && visit.woundPhotos),
+  };
+  PHOTO_KEYS.forEach(key => renderPhotoPreview(key));
+
+  // 새 입력인지 수정인지에 따라 시트 제목과 버튼 문구를 바꿔준다
+  document.querySelector('#sheet-visit .sheet-head h3').textContent = visit ? '방문 기록 수정하기' : '방문 기록 입력하기';
+  document.getElementById('btn-save-visit').textContent = visit ? '수정 내용 저장하기' : '저장하기';
+
+  openSheet('sheet-visit');
+}
+
+let savingVisit = false;
+async function saveVisit() {
+  if (savingVisit) return; // 저장 중 중복 클릭 방지
+  const disease = getCurrentDisease();
+  if (!disease) return;
+  const date = document.getElementById('input-visit-date').value || todayStr();
+  const hospital = document.getElementById('input-visit-hospital').value.trim();
+  const treatment = document.getElementById('input-visit-treatment').value.trim();
+
+  if (!hospital) {
+    showToast('병원명을 입력해주세요.');
+    return;
+  }
+
+  // 사진: 새로 찍은/고른 사진은 새 id 로 저장 대기, 바뀌거나 지워진 옛 사진은 삭제 대기
+  const oldVisit = editingVisitId ? disease.visits.find(v => v.id === editingVisitId) : null;
+  const photoIds = {};
+  const photoPuts = [];
+  const photoDeletes = [];
+  PHOTO_KEYS.forEach(key => {
+    photoIds[key] = tempPhotos[key].map(t => {
+      if (t.blob) { t._newId = 'ph_' + uid(); photoPuts.push({ id: t._newId, blob: t.blob }); return t._newId; }
+      return t.id;
+    });
+    ((oldVisit && oldVisit[key]) || []).forEach(oldId => {
+      if (!photoIds[key].includes(oldId)) photoDeletes.push(oldId);
+    });
+  });
+
+  const fields = {
+    date, hospital, treatment,
+    nextVisit: document.getElementById('input-visit-next').value || '',
+    doctor: document.getElementById('input-visit-doctor').value.trim(),
+    consult: document.getElementById('input-visit-consult').value.trim(),
+    pharmacy: document.getElementById('input-visit-pharmacy').value.trim(),
+    medication: document.getElementById('input-visit-medication').value.trim(),
+    medPhotos: photoIds.medPhotos,
+    woundPhotos: photoIds.woundPhotos,
+    improvement: document.getElementById('input-visit-improve').value.trim(),
+    improvementScore: (() => { const r = document.querySelector('input[name="improve-score"]:checked'); return r ? Number(r.value) : null; })(),
+    opinion: document.getElementById('input-visit-opinion').value.trim(),
+    cost: (() => { const d = document.getElementById('input-visit-cost').value.replace(/\D/g, ''); return d ? Number(d) : null; })(),
+    etc: document.getElementById('input-visit-etc').value.trim(),
+  };
+
+  const isNew = !oldVisit;
+  const prevUpdatedAt = disease.updatedAt;
+  const backup = oldVisit ? { ...oldVisit } : null;
+  let visitRef;
+  if (oldVisit) {
+    // 수정 모드: 기존 방문기록을 찾아 값만 갱신 (id, 최초입력일은 유지)
+    visitRef = oldVisit;
+    Object.assign(visitRef, fields);
+  } else {
+    // 신규 입력 모드
+    visitRef = { id: uid(), ...fields, createdAt: todayStr() };
+    disease.visits.push(visitRef);
+  }
+
+  updateDiseaseLastVisitDate(disease); // 최종 병원 방문일을 실제 방문일 기준으로 다시 계산
+  savingVisit = true;
+  let ok = false;
+  try { ok = await saveState(photoPuts, photoDeletes); } finally { savingVisit = false; }
+
+  if (!ok) {
+    // 저장 실패: 화면과 저장 내용이 어긋나지 않게 원래 상태로 되돌린다
+    if (isNew) disease.visits = disease.visits.filter(v => v.id !== visitRef.id);
+    else if (backup) Object.assign(visitRef, backup);
+    disease.updatedAt = prevUpdatedAt;
+    alert('기록을 저장하지 못했어요.\n기기의 저장공간이 부족할 수 있어요. 여유 공간을 확보한 뒤 다시 저장해주세요.');
+    return; // 입력창을 닫지 않아 방금 적은 내용은 그대로 남아있음
+  }
+
+  // 저장 성공: 새 사진의 미리보기 주소는 화면 캐시로 넘기고, 지워진 옛 사진 주소는 정리
+  PHOTO_KEYS.forEach(key => {
+    tempPhotos[key].forEach(t => {
+      if (t.blob && t.url && t._newId) { photoUrlCache.set(t._newId, t.url); t.owned = false; }
+    });
+  });
+  forgetPhotoUrls(photoDeletes);
+
+  editingVisitId = null;
+  closeSheet('sheet-visit');
+  renderVisitList();
+  if (isNew) openSheet('sheet-saved');           // 새 기록: 가운데 안내 창 (확인을 눌러야 닫힘)
+  else showToast('방문 기록을 수정했어요.');
+}
+
+async function deleteVisit(visitId) {
+  const disease = getCurrentDisease();
+  if (!disease) return;
+  const ok = confirm('이 방문 기록을 삭제할까요? 삭제하면 되돌릴 수 없어요.');
+  if (!ok) return;
+  const removed = disease.visits.find(v => v.id === visitId);
+  const prevVisits = disease.visits;
+  const prevUpdatedAt = disease.updatedAt;
+  const photoIds = removed ? [...(removed.medPhotos || []), ...(removed.woundPhotos || [])] : [];
+  disease.visits = disease.visits.filter(v => v.id !== visitId);
+  updateDiseaseLastVisitDate(disease);
+  if (!(await saveState([], photoIds))) {
+    disease.visits = prevVisits;
+    disease.updatedAt = prevUpdatedAt;
+    showToast('삭제하지 못했어요. 다시 시도해주세요.');
+    renderVisitList();
+    return;
+  }
+  forgetPhotoUrls(photoIds);
+  showToast('방문 기록을 삭제했어요.');
+  renderVisitList();
+}
+
+/* 병명의 '최종 병원 방문일'을 실제 방문기록 중 가장 최근 날짜로 갱신한다 */
+function updateDiseaseLastVisitDate(disease) {
+  if (!disease.visits || disease.visits.length === 0) {
+    disease.updatedAt = disease.createdAt;
+    return;
+  }
+  let latest = disease.visits[0].date || disease.createdAt;
+  disease.visits.forEach(v => { if (v.date && v.date > latest) latest = v.date; });
+  disease.updatedAt = latest;
+}
+
+/* ---------- 사진 촬영 / 앨범 선택 ---------- */
+function triggerPhotoInput(target, useCamera) {
+  if (tempPhotos[target].length >= MAX_PHOTOS) {
+    showToast(`사진은 최대 ${MAX_PHOTOS}장까지 등록할 수 있어요.`);
+    return;
+  }
+  photoTarget = target;
+  const input = document.getElementById('hidden-file-input');
+  if (useCamera) {
+    input.setAttribute('capture', 'environment');
+    input.multiple = false;
+  } else {
+    input.removeAttribute('capture');
+    input.multiple = true; // 앨범에서는 한 번에 여러 장 선택 가능
+  }
+  input.value = '';
+  input.click();
+}
+
+document.getElementById('hidden-file-input').addEventListener('change', async function(e) {
+  const files = Array.from(e.target.files || []);
+  const target = photoTarget;
+  if (!files.length || !target) return;
+  const list = tempPhotos[target];
+  const room = MAX_PHOTOS - list.length;
+  if (room <= 0) { showToast(`사진은 최대 ${MAX_PHOTOS}장까지 등록할 수 있어요.`); return; }
+
+  let failed = 0;
+  for (const file of files.slice(0, room)) {
+    const blob = await new Promise(resolve => compressImageFile(file, resolve));
+    if (tempPhotos[target] !== list) return; // 그 사이 입력창이 닫히거나 바뀐 경우
+    if (!blob) { failed++; continue; }
+    list.push({ id: null, blob, url: URL.createObjectURL(blob), owned: true });
+    renderPhotoPreview(target);
+  }
+  if (failed) showToast('불러오지 못한 사진이 있어요.');
+  else if (files.length > room) showToast(`최대 ${MAX_PHOTOS}장까지라서 ${room}장만 추가했어요.`);
+});
+
+/* 사진을 '약봉투 글씨 확인 · 환부 상태 확인' 용도에 맞게 줄여 JPEG 파일(Blob)로 만든다.
+   - 긴 변 최대 1280px: 약봉투의 작은 주의문구(약 2mm)도 읽히는 크기. 요즘 폰 사진(4000px 이상, 3~8MB)은 보통 100~250KB 로 줄어든다.
+   - 품질 0.75 로 저장하고, 300KB 를 넘으면 0.65 → 0.55 로 낮춰 다시 저장해서 사진 한 장의 용량 상한을 지킨다. */
+const PHOTO_MAX_DIM = 1280;
+const PHOTO_QUALITIES = [0.75, 0.65, 0.55];
+const PHOTO_TARGET_BYTES = 300 * 1024;
+
+function compressImageFile(file, callback) {
+  const srcUrl = URL.createObjectURL(file);
+  const img = new Image();
+  img.onload = function() {
+    URL.revokeObjectURL(srcUrl);
+    let { width, height } = img;
+    if (width > height && width > PHOTO_MAX_DIM) {
+      height = Math.round(height * (PHOTO_MAX_DIM / width));
+      width = PHOTO_MAX_DIM;
+    } else if (height >= width && height > PHOTO_MAX_DIM) {
+      width = Math.round(width * (PHOTO_MAX_DIM / height));
+      height = PHOTO_MAX_DIM;
+    }
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#fff';               // 투명 배경(PNG 등)이 검게 저장되지 않도록
+    ctx.fillRect(0, 0, width, height);
+    ctx.imageSmoothingQuality = 'high';   // 줄일 때 글씨가 뭉개지지 않도록
+    ctx.drawImage(img, 0, 0, width, height);
+
+    let attempt = 0;
+    const encode = function() {
+      canvas.toBlob(function(blob) {
+        if (!blob) { callback(null); return; }
+        if (blob.size <= PHOTO_TARGET_BYTES || attempt >= PHOTO_QUALITIES.length - 1) { callback(blob); return; }
+        attempt++;
+        encode();
+      }, 'image/jpeg', PHOTO_QUALITIES[attempt]);
+    };
+    try {
+      encode();
+    } catch (err) {
+      console.error('이미지 압축 실패:', err);
+      callback(null);
+    }
+  };
+  img.onerror = function() { URL.revokeObjectURL(srcUrl); callback(null); };
+  img.src = srcUrl;
+}
+
+function renderPhotoPreview(target) {
+  const box = document.getElementById(`preview-${target}`);
+  const list = tempPhotos[target];
+  const counter = document.getElementById(`count-${target}`);
+  if (counter) counter.textContent = `${list.length}/${MAX_PHOTOS}`;
+  if (list.length === 0) {
+    box.innerHTML = `<div class="photo-empty">사진 없음</div>`;
+    return;
+  }
+  box.innerHTML = '';
+  list.forEach((t, i) => {
+    const cell = document.createElement('div');
+    cell.className = 'photo-thumb';
+    const img = document.createElement('img');
+    img.alt = `사진 ${i + 1}`;
+    img.addEventListener('click', () => openPhotoViewer(list.map(x => x.url ? { url: x.url } : { id: x.id }), i));
+    const rm = document.createElement('button');
+    rm.type = 'button';
+    rm.className = 'ph-remove';
+    rm.innerHTML = '&times;';
+    rm.setAttribute('aria-label', '사진 삭제');
+    rm.addEventListener('click', ev => { ev.stopPropagation(); removeTempPhoto(target, t); });
+    cell.append(img, rm);
+    box.appendChild(cell);
+    if (t.url) {
+      img.src = t.url;
+    } else {
+      // 이미 저장된 사진은 저장소에서 읽어온다
+      getPhotoUrl(t.id).then(url => {
+        if (url) { t.url = url; img.src = url; return; }
+        const msg = document.createElement('span');
+        msg.className = 'ph-empty';
+        msg.textContent = '불러오지 못했어요';
+        img.replaceWith(msg);
+      });
+    }
+  });
+}
+
+function removeTempPhoto(target, entry) {
+  const list = tempPhotos[target];
+  const i = list.indexOf(entry);
+  if (i < 0) return;
+  if (entry.owned && entry.url) URL.revokeObjectURL(entry.url);
+  list.splice(i, 1);
+  renderPhotoPreview(target);
+}
+
+/* ---------- 사진 확대 보기 (새 모달) ---------- */
+let viewer = { items: [], index: 0, token: 0 };
+
+/* items: [{ id } 또는 { url }] 목록, index: 처음 보여줄 사진 번호 */
+function openPhotoViewer(items, index) {
+  if (!items || items.length === 0) return;
+  viewer.items = items;
+  viewer.index = Math.min(Math.max(index || 0, 0), items.length - 1);
+  document.getElementById('photo-viewer').classList.add('active');
+  showViewerPhoto();
+}
+
+function showViewerPhoto() {
+  const { items, index } = viewer;
+  const item = items[index];
+  const img = document.getElementById('pv-img');
+  const many = items.length > 1;
+  document.getElementById('pv-count').textContent = `${index + 1} / ${items.length}`;
+  document.getElementById('pv-prev').style.display = many ? '' : 'none';
+  document.getElementById('pv-next').style.display = many ? '' : 'none';
+  img.style.visibility = 'hidden';
+  const token = ++viewer.token;
+  (item.url ? Promise.resolve(item.url) : getPhotoUrl(item.id)).then(url => {
+    if (token !== viewer.token) return; // 그 사이 다른 사진으로 넘어갔거나 닫힘
+    if (!url) { showToast('사진을 불러오지 못했어요.'); return; }
+    img.src = url;
+    img.style.visibility = 'visible';
+  });
+}
+
+function stepPhotoViewer(delta) {
+  const n = viewer.items.length;
+  if (n < 2) return;
+  viewer.index = (viewer.index + delta + n) % n;
+  showViewerPhoto();
+}
+
+function closePhotoViewer() {
+  document.getElementById('photo-viewer').classList.remove('active');
+  viewer.token++;
+  viewer.items = [];
+  document.getElementById('pv-img').removeAttribute('src');
+}
+
+// 좌우로 밀어서 사진 넘기기 (확대 중일 때는 넘기지 않음), 키보드 화살표/Esc 지원
+(function setupPhotoViewerGestures() {
+  const el = document.getElementById('photo-viewer');
+  let sx = null, sy = null;
+  el.addEventListener('touchstart', e => {
+    if (e.touches.length !== 1) { sx = null; return; }
+    sx = e.touches[0].clientX; sy = e.touches[0].clientY;
+  }, { passive: true });
+  el.addEventListener('touchend', e => {
+    if (sx === null) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - sx, dy = t.clientY - sy;
+    sx = null;
+    const zoomed = window.visualViewport && window.visualViewport.scale > 1.02;
+    if (!zoomed && Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) stepPhotoViewer(dx < 0 ? 1 : -1);
+  }, { passive: true });
+  document.addEventListener('keydown', e => {
+    if (!el.classList.contains('active')) return;
+    if (e.key === 'Escape') closePhotoViewer();
+    else if (e.key === 'ArrowLeft') stepPhotoViewer(-1);
+    else if (e.key === 'ArrowRight') stepPhotoViewer(1);
+  });
+})();
+
+/* ---------- 바텀시트 공통 ---------- */
+function openSheet(id) {
+  document.getElementById(id).classList.add('active');
+}
+function closeSheet(id) {
+  document.getElementById(id).classList.remove('active');
+}
+function closeSheetOnOverlay(e, id) {
+  if (e.target.id === id) closeSheet(id);
+}
+
+/* 병원에 쓴 돈: 숫자 키패드로 입력, 칸을 벗어나면 1,000 단위 쉼표로 보기 좋게 표시 */
+function formatMoney(n) { return Number(n).toLocaleString('ko-KR'); }
+function onCostInput(el) { el.value = el.value.replace(/\D/g, '').slice(0, 10); }   // 숫자 외 글자는 입력되지 않게
+function onCostFocus(el) { el.value = el.value.replace(/\D/g, ''); }
+function onCostBlur(el) {
+  const d = el.value.replace(/\D/g, '');
+  el.value = d ? formatMoney(Number(d)) : '';
+}
+function clearImproveScore() {
+  document.querySelectorAll('input[name="improve-score"]').forEach(r => { r.checked = false; });
+}
+const IMPROVE_LABELS = { 1: '증상 심함', 3: '증상 완화', 5: '완치' };
+function improveScoreHtml(score) {
+  if (!score) return '';
+  const lbl = IMPROVE_LABELS[score] ? ` · ${IMPROVE_LABELS[score]}` : '';
+  return `<p class="db-value" style="font-weight:600; color:var(--pine); margin:0 0 4px;">${score} / 5${lbl}</p>`;
+}
+
+/* ---------- 설정 화면 (앱 전체 공통 설정) ----------
+   #settings-content 안에서 화면만 바꿔가며 보여준다(설정 첫 화면 / 비밀번호 관리 / 데이터 백업).
+   내용은 차츰 추가될 예정. ---------- */
+function openSettings() {
+  renderSettingsMain();
+  openSheet('sheet-settings');
+}
+function passwordStatusLabel() {
+  const cfg = getPinConfig();
+  return (cfg && cfg.mode === 'pin') ? '설정됨' : '설정 안 함';
+}
+/* 설정 첫 화면: 잠금 / 데이터 */
+function renderSettingsMain() {
+  document.getElementById('settings-content').innerHTML = `
+    <p class="settings-section-title">잠금</p>
+    <div class="list" style="margin-top:6px;">
+      <button type="button" class="row" onclick="renderSettingsPassword()">
+        <div class="row-main">
+          <p class="row-title">비밀번호 관리</p>
+          <p class="row-sub">비밀번호 변경, 힌트 재설정, 삭제</p>
+        </div>
+        <span class="chev" style="font-size:13px;">${passwordStatusLabel()} &gt;</span>
+      </button>
+    </div>
+    <p class="settings-section-title">데이터</p>
+    <div class="list" style="margin-top:6px;">
+      <button type="button" class="row" onclick="renderSettingsBackup()">
+        <div class="row-main">
+          <p class="row-title">데이터 백업</p>
+          <p class="row-sub">사진·글을 파일로 내보내거나 불러와요</p>
+        </div>
+        <span class="chev">&gt;</span>
+      </button>
+    </div>
+  `;
+}
+
+/* 설정 > 비밀번호 관리 */
+function renderSettingsPassword() {
+  const cfg = getPinConfig();
+  const has = cfg && cfg.mode === 'pin';
+  const body = has ? `
+    <div class="list" style="margin-top:6px;">
+      <button type="button" class="row" onclick="settingsRequestVerify('change')">
+        <div class="row-main">
+          <p class="row-title">비밀번호 변경</p>
+          <p class="row-sub">현재 비밀번호를 확인한 뒤 새 번호를 만들어요</p>
+        </div>
+        <span class="chev">&gt;</span>
+      </button>
+      <button type="button" class="row" onclick="settingsRequestVerify('reset-hint')">
+        <div class="row-main">
+          <p class="row-title">힌트 재설정</p>
+          <p class="row-sub">현재 비밀번호를 확인한 뒤 힌트 문장을 새로 적어요</p>
+        </div>
+        <span class="chev">&gt;</span>
+      </button>
+    </div>
+    <button type="button" class="delete-link" style="margin-top:18px;" onclick="settingsRequestVerify('delete')">비밀번호 삭제</button>
+  ` : `
+    <p style="font-size:13.5px; color:var(--ink-soft); line-height:1.6; margin:4px 2px 16px;">아직 비밀번호가 설정되어 있지 않아요.<br>만들면 앱을 열 때마다 4자리 번호를 물어봐요.</p>
+    <button type="button" class="btn-primary" onclick="settingsCreatePassword()">비밀번호 만들기</button>
+  `;
+  document.getElementById('settings-content').innerHTML = `
+    <button type="button" class="back-btn" style="margin:-4px 0 10px; padding-left:0;" onclick="renderSettingsMain()">&lsaquo; 설정으로</button>
+    <p class="settings-section-title">비밀번호 관리</p>
+    ${body}
+  `;
+}
+function settingsCreatePassword() {
+  pinReturnTo = 'settings';
+  pinPendingAction = null;
+  showPinScreen('create');
+}
+/* 비밀번호 변경/힌트 재설정/삭제는 모두 먼저 현재 비밀번호를 한 번 확인받는다 */
+function settingsRequestVerify(action) {
+  if (action === 'delete') {
+    if (!confirm('비밀번호를 삭제할까요? 확인을 위해 현재 비밀번호를 한 번 더 입력해주세요.')) return;
+  }
+  pinReturnTo = 'settings';
+  pinPendingAction = action;
+  showPinScreen('enter');
+}
+
+/* 설정 > 데이터 백업: 사진·글을 파일로 내보내거나(카카오톡/문자/저장 등) 불러온다.
+   음성 기록은 이 앱에 없으므로 백업 대상은 사진과 글뿐이다. */
+function renderSettingsBackup() {
+  document.getElementById('settings-content').innerHTML = `
+    <button type="button" class="back-btn" style="margin:-4px 0 10px; padding-left:0;" onclick="renderSettingsMain()">&lsaquo; 설정으로</button>
+    <p class="settings-section-title">데이터 백업</p>
+    <p style="font-size:13.5px; color:var(--ink-soft); line-height:1.6; margin:4px 2px 18px;">사진과 글로 된 기록을 백업 파일로 만들어서 카카오톡, 문자, 또는 기기 저장 등으로 보낼 수 있어요.<br>전달받았거나 저장해둔 백업 파일을 불러오면 이 기기의 기록에 더해져요.</p>
+    <div style="display:flex; flex-direction:column; gap:10px;">
+      <button type="button" class="btn-primary" id="backup-export-btn" onclick="handleExportBackup()">내보내기</button>
+      <button type="button" class="btn-ghost" onclick="triggerImportBackup()">불러오기</button>
+    </div>
+    <input type="file" id="backup-import-input" accept="application/json,.json,text/plain,.txt" hidden onchange="handleImportBackupFile(event)">
+  `;
+}
+
+/* ---- 내보내기: 사진(base64)·글이 담긴 백업 파일을 만들어 공유하거나 저장한다 ---- */
+async function prepareBackupPayload() {
+  // 사진 id를 실제 사진 데이터(base64)로 바꾼 복사본을 만든다 (원래 저장된 기록은 건드리지 않음)
+  const peopleCopy = JSON.parse(JSON.stringify(state.people));
+  for (const p of peopleCopy) {
+    for (const d of (p.diseases || [])) {
+      for (const v of (d.visits || [])) {
+        for (const key of PHOTO_KEYS) {
+          const ids = Array.isArray(v[key]) ? v[key] : [];
+          const dataUrls = [];
+          for (const id of ids) {
+            try {
+              const blob = await idbGet('photos', id);
+              if (blob) dataUrls.push(await blobToDataUrl(blob));
+            } catch (e) { console.error('백업용 사진 읽기 실패:', e); }
+          }
+          v[key] = dataUrls;
+        }
+      }
+    }
+  }
+  return { app: 'hospital-tracker', version: 1, exportedAt: new Date().toISOString(), people: peopleCopy };
+}
+function downloadBackupFile(json, filename) {
+  try {
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 3000);
+    return true;
+  } catch (e) {
+    console.error('백업 파일 저장 실패:', e);
+    return false;
+  }
+}
+
+/* 정식 앱(Capacitor)으로 패키징된 경우에만 동작: 안드로이드 자체의 "공유" 기능으로 카카오톡 등에
+   파일을 곧바로 넘긴다. 브라우저의 navigator.share와 달리 파일 형식 제한이 없어서,
+   데이터 파일(json)도 내용이 풀리지 않고 진짜 첨부파일로 전달된다.
+   반환값: true(공유됨) / 'cancelled'(사용자가 공유창을 취소함) / null(정식 앱이 아니거나 실패 → 호출쪽에서 다운로드로 대체) */
+async function shareBackupViaNativeApp(json, filename) {
+  try {
+    const Filesystem = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Filesystem;
+    const Share = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Share;
+    if (!Filesystem || !Share) return null; // 정식 앱이 아니라 일반 브라우저로 열린 경우
+
+    // 다른 앱(카카오톡 등)에 열어주려면 공유 가능한 위치(캐시 폴더)에 파일을 먼저 써야 한다
+    await Filesystem.writeFile({ path: filename, data: json, directory: 'CACHE', encoding: 'utf8' });
+    const { uri } = await Filesystem.getUri({ path: filename, directory: 'CACHE' });
+    await Share.share({ title: '병원방문 기록 백업 파일이에요.', files: [uri] });
+    return true;
+  } catch (e) {
+    if (e && /cancel/i.test(e.message || '')) return 'cancelled';
+    console.error('네이티브 공유 실패, 다운로드로 대체합니다:', e);
+    return null;
+  }
+}
+async function handleExportBackup() {
+  const btn = document.getElementById('backup-export-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '백업 파일 만드는 중…'; }
+  try {
+    const payload = await prepareBackupPayload();
+    const json = JSON.stringify(payload);
+    const now = new Date();
+    const stamp = now.getFullYear() + String(now.getMonth() + 1).padStart(2, '0') + String(now.getDate()).padStart(2, '0')
+      + '_' + String(now.getHours()).padStart(2, '0') + String(now.getMinutes()).padStart(2, '0');
+    const filename = `병원기록백업_${stamp}.json`;
+    const sizeMB = (json.length / 1024 / 1024).toFixed(1);
+
+    // 1) 정식 앱(Capacitor)으로 패키징된 경우: 안드로이드 자체 공유 기능으로 카카오톡 등에 파일을 바로 넘긴다.
+    const nativeResult = await shareBackupViaNativeApp(json, filename);
+    if (nativeResult === true) {
+      showToast('백업 파일을 보냈어요.');
+      return;
+    }
+    if (nativeResult === 'cancelled') return; // 공유창에서 취소한 경우 조용히 종료
+
+    // 2) 정식 앱이 아니라 일반 브라우저(html)로 열린 경우: 카카오톡의 웹 "공유하기"는 파일 내용을 그대로
+    //    채팅창에 텍스트로 풀어서 보여줄 뿐 진짜 첨부파일로 넘겨주지 않는다(개인 병원 기록이라 이렇게
+    //    노출되면 안 됨). 그래서 기기에 파일로 저장한 뒤 카카오톡 "파일 첨부" 버튼으로 직접 보내게 한다.
+    if (downloadBackupFile(json, filename)) {
+      alert(`백업 파일(약 ${sizeMB}MB)을 기기에 저장했어요.\n\n카카오톡이나 문자 앱에서 파일 첨부 버튼을 눌러 방금 저장된 "${filename}" 파일을 선택해 보내주세요.`);
+    } else {
+      alert('백업 파일을 저장하지 못했어요. 기기 저장 공간을 확인해주세요.');
+    }
+  } catch (e) {
+    console.error('백업 내보내기 실패:', e);
+    alert('백업 파일을 만들지 못했어요. 다시 시도해주세요.');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '내보내기'; }
+  }
+}
+
+/* ---- 불러오기: 백업 파일을 선택해서 이 기기의 기록에 더한다(중복은 건너뜀) ---- */
+function triggerImportBackup() {
+  const input = document.getElementById('backup-import-input');
+  if (input) { input.value = ''; input.click(); }
+}
+function handleImportBackupFile(e) {
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    let data;
+    try { data = JSON.parse(reader.result); } catch (err) { alert('올바른 백업 파일이 아니에요.'); return; }
+    if (!data || !Array.isArray(data.people)) { alert('올바른 백업 파일이 아니에요.'); return; }
+    importBackupPeople(data.people);
+  };
+  reader.onerror = () => alert('백업 파일을 읽지 못했어요. 파일이 손상되었거나 형식이 달라요.');
+  reader.readAsText(file);
+}
+async function importBackupPeople(importedPeople) {
+  // 이미 있는 사람/병명/방문기록은 건너뛰고, 새로운 것만 더한다 (id 로 구분)
+  const existingPersonIds = new Set(state.people.map(p => p.id));
+  const existingDiseaseIds = new Set();
+  const existingVisitIds = new Set();
+  state.people.forEach(p => (p.diseases || []).forEach(d => {
+    existingDiseaseIds.add(d.id);
+    (d.visits || []).forEach(v => existingVisitIds.add(v.id));
+  }));
+
+  let newPeople = 0, newDiseases = 0, newVisits = 0;
+  importedPeople.forEach(p => {
+    if (!p || !p.id) return;
+    if (!existingPersonIds.has(p.id)) {
+      newPeople++;
+      (p.diseases || []).forEach(d => { newDiseases++; newVisits += (d.visits || []).length; });
+      return;
+    }
+    (p.diseases || []).forEach(d => {
+      if (!d || !d.id) return;
+      if (!existingDiseaseIds.has(d.id)) {
+        newDiseases++; newVisits += (d.visits || []).length;
+        return;
+      }
+      (d.visits || []).forEach(v => { if (v && v.id && !existingVisitIds.has(v.id)) newVisits++; });
+    });
+  });
+
+  if (newPeople + newDiseases + newVisits === 0) {
+    alert('새로 추가할 기록이 없어요. (이미 모두 불러온 백업일 수 있어요)');
+    return;
+  }
+  const parts = [];
+  if (newPeople) parts.push(`사람 ${newPeople}명`);
+  if (newDiseases) parts.push(`병명 ${newDiseases}개`);
+  if (newVisits) parts.push(`방문기록 ${newVisits}건`);
+  if (!confirm(`백업 파일에서 ${parts.join(', ')}을(를) 새로 찾았어요.\n이 앱에 불러올까요? (이미 있는 기록은 중복으로 추가되지 않아요)`)) return;
+
+  // base64 사진 -> Blob 으로 바꾸고, importedPeople 안 사진은 새 사진 id 배열로 교체된다
+  const photoPuts = extractPhotos(importedPeople);
+
+  importedPeople.forEach(p => {
+    if (!p || !p.id) return;
+    if (!existingPersonIds.has(p.id)) {
+      state.people.push(p);
+      existingPersonIds.add(p.id);
+      return;
+    }
+    const person = state.people.find(sp => sp.id === p.id);
+    (p.diseases || []).forEach(d => {
+      if (!d || !d.id) return;
+      if (!existingDiseaseIds.has(d.id)) {
+        person.diseases = person.diseases || [];
+        person.diseases.push(d);
+        existingDiseaseIds.add(d.id);
+        return;
+      }
+      const disease = person.diseases.find(sd => sd.id === d.id);
+      (d.visits || []).forEach(v => {
+        if (v && v.id && !existingVisitIds.has(v.id)) {
+          disease.visits = disease.visits || [];
+          disease.visits.push(v);
+          existingVisitIds.add(v.id);
+        }
+      });
+    });
+  });
+
+  const ok = await saveState(photoPuts, []);
+  if (!ok) { alert('불러오기를 저장하지 못했어요. 기기 저장 공간을 확인해주세요.'); return; }
+  showToast('백업 파일을 불러왔어요.');
+  refreshCurrentPage();
+}
+/* 데이터가 바뀐 뒤, 현재 보고 있는 화면이 있으면 다시 그려서 바로 반영되게 한다 */
+function refreshCurrentPage() {
+  const active = document.querySelector('.page.active');
+  if (!active) return;
+  if (active.id === 'page-person') renderPersonList();
+  else if (active.id === 'page-disease') renderDiseaseList();
+  else if (active.id === 'page-visit') renderVisitList();
+}
+
+/* ---------- 토스트 ---------- */
+let toastTimer = null;
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2200);
+}
+
+/* ---------- 유틸: XSS 방지용 이스케이프 ---------- */
+function escapeHtml(str) {
+  if (!str) return '';
+  return str.replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
+}
+
+/* ---------- 첫 페이지: 이용 동의 체크 ---------- */
+const AGREE_KEY = 'hospitalTracker_agreed_v1';
+
+function onAgreeChange() {
+  updateStartButton();
+}
+/* 동의 체크 전에는 시작하기 버튼을 흐리게(비활성처럼) 보여준다. 누르면 안내 창이 뜬다 */
+function updateStartButton() {
+  const on = document.getElementById('agree-checkbox').checked;
+  const btn = document.getElementById('start-btn');
+  btn.classList.toggle('is-off', !on);
+  btn.setAttribute('aria-disabled', on ? 'false' : 'true');
+}
+
+function handleStart() {
+  const checked = document.getElementById('agree-checkbox').checked;
+  if (!checked) {
+    openSheet('sheet-notice');
+    return;
+  }
+  try { localStorage.setItem(AGREE_KEY, '1'); } catch (e) { /* 저장 실패해도 진행에는 지장 없음 */ }
+  const cfg = getPinConfig();
+  if (!cfg) openSheet('sheet-pin-ask');            // 처음: 비밀번호를 만들지 물어본다
+  else if (cfg.mode === 'pin') showPinScreen('enter'); // 비밀번호를 만든 경우: 입력
+  else enterApp();                                  // '그냥 편히 쓸게요'를 골랐던 경우: 바로 입장
+}
+function enterApp() { goPersonPage(); }
+
+/* =========================================================
+   비밀번호(앱 잠금) — 4자리 숫자 + 힌트 문장
+   · 이 기기의 localStorage 에 저장 (비밀번호는 원문이 아닌 변환값으로 저장, 힌트는 그대로 저장)
+   · 화면을 가리는 '앱 잠금'이며, 기록 데이터를 암호화하는 기능은 아님
+   ========================================================= */
+const PIN_KEY = 'hospitalTracker_pin_v1';
+let pinMode = null;        // 'create1' | 'create2' | 'enter' | 'hint-only'
+let pinBuffer = '';
+let pinCandidate = '';
+/* 설정 화면(비밀번호 관리)에서 PIN 화면을 띄운 경우에는, 끝나거나 취소했을 때
+   앱 입장(enterApp)이 아니라 다시 설정 화면으로 돌아가야 한다. */
+let pinReturnTo = null;      // null | 'settings'
+let pinPendingAction = null; // null | 'change' | 'reset-hint' | 'delete' (설정에서 현재 비밀번호 확인 후 할 일)
+
+function getPinConfig() { try { const r = localStorage.getItem(PIN_KEY); return r ? JSON.parse(r) : null; } catch (e) { return null; } }
+function setPinConfig(cfg) { try { localStorage.setItem(PIN_KEY, JSON.stringify(cfg)); return true; } catch (e) { return false; } }
+
+/* 간단한 문자열 해시(cyrb53) — 어떤 브라우저에서도 같은 값이 나오도록 직접 구현 */
+function cyrb53(str, seed) {
+  let h1 = 0xdeadbeef ^ seed, h2 = 0x41c6ce57 ^ seed;
+  for (let i = 0; i < str.length; i++) {
+    const ch = str.charCodeAt(i);
+    h1 = Math.imul(h1 ^ ch, 2654435761); h2 = Math.imul(h2 ^ ch, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return 4294967296 * (2097151 & h2) + (h1 >>> 0);
+}
+function pinHash(pin, salt) {
+  const data = `${salt}:${pin}:hospital-tracker`;
+  return cyrb53(data, 1).toString(36) + '-' + cyrb53(data, 2).toString(36);
+}
+
+function choosePinNone() {
+  setPinConfig({ mode: 'none' });
+  closeSheet('sheet-pin-ask');
+  enterApp();
+}
+function choosePinCreate() {
+  closeSheet('sheet-pin-ask');
+  showPinScreen('create');
+}
+
+function showPinScreen(kind) {
+  pinBuffer = ''; pinCandidate = '';
+  pinMode = kind === 'create' ? 'create1' : 'enter';
+  document.getElementById('pin-view-keypad').style.display = 'flex';
+  document.getElementById('pin-view-hint').style.display = 'none';
+  const cfg = getPinConfig();
+  const hintArea = document.getElementById('pin-hint-area');
+  const hintText = document.getElementById('pin-hint-text');
+  hintArea.style.display = (kind === 'enter' && cfg && cfg.hint) ? 'block' : 'none';   // 힌트 보기는 입장할 때만
+  hintText.style.display = 'none';
+  hintText.textContent = (cfg && cfg.hint) || '';
+  document.getElementById('pin-hint-toggle').textContent = '비밀번호 힌트 보기';
+  document.getElementById('pin-msg').textContent = '';
+  document.getElementById('pin-cancel-btn').textContent = (pinReturnTo === 'settings') ? '‹ 취소' : '‹ 처음으로';
+  renderPin();
+  document.getElementById('pin-screen').classList.add('active');
+}
+function hidePinScreen() {
+  document.getElementById('pin-screen').classList.remove('active');
+  pinMode = null; pinBuffer = ''; pinCandidate = '';
+  document.getElementById('pin-hint-input').value = '';
+  document.getElementById('pin-hint-msg').textContent = '';
+}
+/* 처음 화면(또는 설정 화면)으로 돌아감. 만들던/바꾸던 비밀번호는 저장되지 않는다 */
+function cancelPin() {
+  const cameFromSettings = pinReturnTo === 'settings';
+  pinReturnTo = null; pinPendingAction = null;
+  hidePinScreen();
+  if (cameFromSettings) renderSettingsPassword();
+}
+function isPinScreenOpen() { return document.getElementById('pin-screen').classList.contains('active'); }
+
+function renderPin() {
+  const titles = {
+    create1: '사용할 비밀번호 4자리를 입력하세요',
+    create2: '확인을 위해<br>한 번 더 입력하세요',
+    enter: '비밀번호를 입력하세요',
+  };
+  document.getElementById('pin-title').innerHTML = titles[pinMode] || '';
+  document.querySelectorAll('#pin-dots span').forEach((d, i) => d.classList.toggle('filled', i < pinBuffer.length));
+}
+function pinMessage(text, shake) {
+  document.getElementById('pin-msg').textContent = text || '';
+  if (shake) {
+    const dots = document.getElementById('pin-dots');
+    dots.classList.remove('shake'); void dots.offsetWidth; dots.classList.add('shake');
+  }
+}
+function pinKey(d) {
+  if (!pinMode || pinBuffer.length >= 4) return;
+  pinBuffer += d;
+  pinMessage('');
+  renderPin();
+  if (pinBuffer.length === 4) setTimeout(pinSubmit, 140);
+}
+function pinBack() {
+  if (!pinMode) return;
+  pinBuffer = pinBuffer.slice(0, -1);
+  renderPin();
+}
+function pinSubmit() {
+  if (pinBuffer.length !== 4) return;
+  if (pinMode === 'create1') {
+    pinCandidate = pinBuffer; pinBuffer = ''; pinMode = 'create2';
+    renderPin();
+  } else if (pinMode === 'create2') {
+    if (pinBuffer === pinCandidate) {
+      // 번호가 맞게 두 번 입력됨 → 힌트 문장 입력 단계
+      pinMode = 'hint';
+      document.getElementById('pin-view-keypad').style.display = 'none';
+      document.getElementById('pin-view-hint').style.display = 'block';
+      setTimeout(() => document.getElementById('pin-hint-input').focus(), 100);
+    } else {
+      pinBuffer = ''; pinCandidate = ''; pinMode = 'create1';
+      renderPin();
+      pinMessage('처음 입력한 번호와 달라요. 처음부터 다시 입력해주세요.', true);
+    }
+  } else if (pinMode === 'enter') {
+    const cfg = getPinConfig();
+    if (cfg && cfg.hash === pinHash(pinBuffer, cfg.salt)) {
+      if (pinReturnTo === 'settings' && pinPendingAction) {
+        // 설정 > 비밀번호 관리에서 현재 비밀번호 확인이 끝난 뒤 이어지는 동작
+        const action = pinPendingAction;
+        pinPendingAction = null;
+        if (action === 'change') {
+          showPinScreen('create'); // pinReturnTo는 'settings'로 유지된 채 새 비밀번호 만들기로 이어짐
+        } else if (action === 'reset-hint') {
+          settingsEditHintOnly();
+        } else if (action === 'delete') {
+          setPinConfig({ mode: 'none' });
+          pinReturnTo = null;
+          hidePinScreen();
+          showToast('비밀번호를 삭제했어요.');
+          renderSettingsPassword();
+        }
+      } else {
+        hidePinScreen();
+        enterApp();
+      }
+    } else {
+      pinBuffer = '';
+      renderPin();
+      pinMessage('비밀번호가 맞지 않아요.', true);
+    }
+  }
+}
+/* 설정 > 비밀번호 관리 > 힌트 재설정: 비밀번호(해시)는 그대로 두고 힌트 문장만 새로 받는다.
+   (pin-screen 이 이미 열려 있는 상태에서 화면만 힌트 입력 화면으로 바꾼다) */
+function settingsEditHintOnly() {
+  pinMode = 'hint-only';
+  document.getElementById('pin-view-keypad').style.display = 'none';
+  document.getElementById('pin-view-hint').style.display = 'block';
+  document.getElementById('pin-hint-input').value = (getPinConfig() || {}).hint || '';
+  document.getElementById('pin-hint-msg').textContent = '';
+  document.getElementById('pin-cancel-btn').textContent = '‹ 취소';
+  setTimeout(() => document.getElementById('pin-hint-input').focus(), 100);
+}
+function togglePinHint() {
+  const t = document.getElementById('pin-hint-text');
+  const show = t.style.display === 'none';
+  t.style.display = show ? 'block' : 'none';
+  document.getElementById('pin-hint-toggle').textContent = show ? '힌트 닫기' : '비밀번호 힌트 보기';
+}
+function savePinWithHint() {
+  const hint = document.getElementById('pin-hint-input').value.trim();
+  const msg = document.getElementById('pin-hint-msg');
+  if (!hint) { msg.textContent = '힌트 문장을 입력해주세요.'; return; }
+
+  // 설정 > 힌트 재설정: 비밀번호(해시)는 그대로 두고 힌트 문장만 바꾼다
+  if (pinMode === 'hint-only') {
+    const cfg = getPinConfig();
+    if (!cfg || cfg.mode !== 'pin') { msg.textContent = '비밀번호 정보를 찾을 수 없어요.'; return; }
+    const ok = setPinConfig(Object.assign({}, cfg, { hint }));
+    if (!ok) { msg.textContent = '저장하지 못했어요. 기기 저장공간을 확인해주세요.'; return; }
+    pinReturnTo = null;
+    hidePinScreen();
+    showToast('힌트를 새로 저장했어요.');
+    renderSettingsPassword();
+    return;
+  }
+
+  if (hint.includes(pinCandidate)) { msg.textContent = '힌트에 비밀번호 숫자가 들어 있어요. 다른 문장으로 적어주세요.'; return; }
+  const salt = Math.random().toString(36).slice(2) + Date.now().toString(36);
+  const ok = setPinConfig({ mode: 'pin', salt, hash: pinHash(pinCandidate, salt), hint });
+  if (!ok) { msg.textContent = '저장하지 못했어요. 기기 저장공간을 확인해주세요.'; return; }
+  const cameFromSettings = pinReturnTo === 'settings';
+  pinReturnTo = null;
+  hidePinScreen();
+  if (cameFromSettings) {
+    showToast('비밀번호를 저장했어요.');
+    renderSettingsPassword();
+  } else {
+    enterApp();
+  }
+}
+/* 컴퓨터 키보드로도 숫자 입력 가능 */
+document.addEventListener('keydown', (e) => {
+  if (!isPinScreenOpen() || !pinMode || pinMode === 'hint') return;
+  if (/^[0-9]$/.test(e.key)) pinKey(e.key);
+  else if (e.key === 'Backspace') pinBack();
+});
+
+function restoreAgreeState() {
+  let agreed = false;
+  try { agreed = localStorage.getItem(AGREE_KEY) === '1'; } catch (e) { /* 무시 */ }
+  if (agreed) {
+    document.getElementById('agree-checkbox').checked = true;
+  }
+  updateStartButton();
+}
+
+/* ---------- 초기화 ---------- */
+restoreAgreeState();
+requestPersistentStorage();
+loadState().then(() => {
+  // 불러오기가 끝났을 때 이미 목록 화면이라면 다시 그려준다
+  const active = document.querySelector('.page.active');
+  if (active && active.id === 'page-person') renderPersonList();
+});
+</script>
+</body>
+</html>
